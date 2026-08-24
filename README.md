@@ -5,5 +5,5 @@
 ## Anggota Kelompok
 
 **Ketua Kelompok:** Nabila Putri Barokah  
-**Anggota 1:** Farand Hafiz  
+**Anggota 1:** Farand Hafiz - 24/540618/TK/60027
 **Anggota 2:** Galang Swastika
