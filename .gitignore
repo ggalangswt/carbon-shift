@@ -1,0 +1,8 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/Form/.vs
+/Form/CarbonShift/bin/Debug/net10.0-windows
+/Form/CarbonShift/obj
+/Form/CarbonShift/CarbonShift.csproj.user
