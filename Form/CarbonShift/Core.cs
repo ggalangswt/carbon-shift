@@ -39,6 +39,7 @@ namespace CarbonShift
         public int EndHour { get; set; }
         public double GreenScore { get; set; }
         public double AvgCloud { get; set; }
+        public string Bukti { get; set; } = "";
 
         public string Rentang
         {
@@ -94,6 +95,7 @@ namespace CarbonShift
 
     public static class AuthService
     {
+        public static int UserId;
         public static string NamaUser = "";
 
         public static bool Login(string email, string password, out string pesan)
@@ -111,15 +113,26 @@ namespace CarbonShift
                 return false;
             }
 
-            // Data dummy, nanti diganti pengecekan ke database (tabel user)
-            if (email == "admin@carbonshift.com" && password == "12345")
+            UserAccount? user;
+            try
             {
-                NamaUser = "Admin";
-                return true;
+                user = UserRepository.FindByEmail(email);
+            }
+            catch (Exception ex)
+            {
+                pesan = "Tidak dapat terhubung ke database: " + ex.Message;
+                return false;
             }
 
-            pesan = "Email atau password salah.";
-            return false;
+            if (user == null || !PasswordHasher.Verify(password, user.PasswordHash))
+            {
+                pesan = "Email atau password salah.";
+                return false;
+            }
+
+            UserId = user.UserId;
+            NamaUser = user.Name;
+            return true;
         }
     }
 
@@ -128,6 +141,11 @@ namespace CarbonShift
         // Koordinat lokasi untuk data live (ganti sesuai kota Anda)
         public const double Latitude = -5.43;
         public const double Longitude = 105.26;
+
+        public static string Lokasi
+        {
+            get { return string.Format(CultureInfo.InvariantCulture, "{0}, {1}", Latitude, Longitude); }
+        }
 
         public static List<WeatherForecast> GetDummy()
         {
@@ -186,8 +204,8 @@ namespace CarbonShift
 
     public static class RecommendationEngine
     {
-        // Hitung Green Score semua slot lalu urutkan dari yang terbaik
-        public static List<TimeSlot> Generate(List<WeatherForecast> data, int durasi, int jamMulaiMin, int jamSelesaiMax)
+        public static List<TimeSlot> Generate(List<WeatherForecast> data, int durasi, int jamMulaiMin, int jamSelesaiMax,
+                                              GreenScoreCalculator calculator)
         {
             List<TimeSlot> hasil = new List<TimeSlot>();
 
@@ -197,12 +215,16 @@ namespace CarbonShift
                 List<WeatherForecast> window = data.Where(d => d.Jam >= s && d.Jam < s + durasi).ToList();
                 if (window.Count < durasi) continue;
 
+                GreenScoreDetail detail;
+                double skor = calculator.Calculate(window, out detail);
+
                 hasil.Add(new TimeSlot
                 {
                     StartHour = s,
                     EndHour = s + durasi,
-                    GreenScore = window.Average(w => w.SolarPotential),
-                    AvgCloud = window.Average(w => w.TutupanAwan)
+                    GreenScore = skor,
+                    AvgCloud = detail.RataAwan,
+                    Bukti = calculator.Jelaskan(detail)
                 });
             }
 

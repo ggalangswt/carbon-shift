@@ -136,7 +136,11 @@ namespace CarbonShift
             }
             else
             {
-                lblError.Text = pesan;
+                lblError.Text = pesan.Length > 45 ? pesan.Substring(0, 42) + "..." : pesan;
+                if (pesan.Length > 45)
+                {
+                    MessageBox.Show(pesan, "Login Gagal", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
                 tbPassword.Clear();
                 tbPassword.Focus();
             }

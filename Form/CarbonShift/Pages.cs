@@ -226,13 +226,14 @@ namespace CarbonShift
 
     public class PageScheduler : UserControl
     {
-        private ComboBox cbActivity;
+        private ComboBox cbActivity, cbMetode;
         private NumericUpDown nudKwh, nudDurasi, nudMulai, nudSelesai;
         private Button btnCari, btnSimpan;
         private DataGridView dgv;
         private BarChartPanel chart;
         private Label lblBest;
         private TimeSlot terbaik;
+        private List<TimeSlot> hasilSlot = new List<TimeSlot>();
 
         private readonly Dictionary<string, double> preset = new Dictionary<string, double>
         {
@@ -296,9 +297,18 @@ namespace CarbonShift
             nudSelesai.Maximum = 24;
             nudSelesai.Value = 18;
 
+            cbMetode = new ComboBox();
+            cbMetode.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbMetode.Location = new Point(20, 394);
+            cbMetode.Width = 250;
+            cbMetode.DisplayMember = "Nama";
+            cbMetode.Items.Add(new WeightedCalculator());
+            cbMetode.Items.Add(new SolarOnlyCalculator());
+            cbMetode.SelectedIndex = 0;
+
             btnCari = new Button();
             btnCari.Text = "Cari Rekomendasi";
-            btnCari.Location = new Point(20, 385);
+            btnCari.Location = new Point(20, 440);
             btnCari.Size = new Size(250, 38);
             btnCari.BackColor = Color.ForestGreen;
             btnCari.ForeColor = Color.White;
@@ -307,7 +317,7 @@ namespace CarbonShift
 
             btnSimpan = new Button();
             btnSimpan.Text = "Simpan ke Riwayat";
-            btnSimpan.Location = new Point(20, 430);
+            btnSimpan.Location = new Point(20, 485);
             btnSimpan.Size = new Size(250, 34);
             btnSimpan.Enabled = false;
             btnSimpan.Click += btnSimpan_Click;
@@ -323,6 +333,8 @@ namespace CarbonShift
             pnlInput.Controls.Add(nudMulai);
             pnlInput.Controls.Add(BuatLabel("Harus selesai paling lambat (jam)", 310));
             pnlInput.Controls.Add(nudSelesai);
+            pnlInput.Controls.Add(BuatLabel("Metode Green Score", 372));
+            pnlInput.Controls.Add(cbMetode);
             pnlInput.Controls.Add(btnCari);
             pnlInput.Controls.Add(btnSimpan);
 
@@ -340,7 +352,7 @@ namespace CarbonShift
 
             Panel pnlBest = new Panel();
             pnlBest.Dock = DockStyle.Bottom;
-            pnlBest.Height = 90;
+            pnlBest.Height = 135;
             pnlBest.BackColor = Color.FromArgb(232, 245, 233);
             pnlBest.Padding = new Padding(12);
 
@@ -402,7 +414,8 @@ namespace CarbonShift
                 return;
             }
 
-            List<TimeSlot> slots = RecommendationEngine.Generate(AppState.Forecast, durasi, mulai, selesai);
+            GreenScoreCalculator calculator = (GreenScoreCalculator)cbMetode.SelectedItem;
+            List<TimeSlot> slots = RecommendationEngine.Generate(AppState.Forecast, durasi, mulai, selesai, calculator);
             if (slots.Count == 0)
             {
                 MessageBox.Show("Tidak ada slot yang cocok pada data prakiraan.", "Info",
@@ -418,14 +431,15 @@ namespace CarbonShift
             }
 
             terbaik = slots[0];
+            hasilSlot = slots;
 
             chart.Data = AppState.Forecast;
             chart.HighlightStart = terbaik.StartHour;
             chart.HighlightEnd = terbaik.EndHour;
             chart.Invalidate();
 
-            lblBest.Text = string.Format("Waktu terbaik: {0}   |   Green Score: {1:0.00} ({2})\n{3}",
-                terbaik.Rentang, terbaik.GreenScore, terbaik.Label, terbaik.Explanation);
+            lblBest.Text = string.Format("Waktu terbaik: {0}   |   Green Score: {1:0.00} ({2})\nMetode: {3}   |   {4}\n{5}\n{6}",
+                terbaik.Rentang, terbaik.GreenScore, terbaik.Label, calculator.Nama, calculator.Rumus, terbaik.Bukti, terbaik.Explanation);
 
             btnSimpan.Enabled = true;
         }
@@ -434,19 +448,27 @@ namespace CarbonShift
         {
             if (terbaik == null) return;
 
-            AppState.History.Add(new ActivityRecord
+            try
             {
-                Nama = cbActivity.Text,
-                DurasiJam = (int)nudDurasi.Value,
-                KWh = (double)nudKwh.Value,
-                Rentang = terbaik.Rentang,
-                GreenScore = terbaik.GreenScore,
-                Dibuat = DateTime.Now
-            });
+                int id = RecommendationRepository.Save(
+                    AuthService.UserId,
+                    cbActivity.Text,
+                    (int)nudDurasi.Value,
+                    (double)nudKwh.Value,
+                    hasilSlot,
+                    terbaik,
+                    AppState.Forecast,
+                    WeatherService.Lokasi);
 
-            btnSimpan.Enabled = false;
-            MessageBox.Show("Rekomendasi disimpan ke Riwayat.", "Tersimpan",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                btnSimpan.Enabled = false;
+                MessageBox.Show("Rekomendasi disimpan ke database (recommendation_id = " + id + ").", "Tersimpan",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Gagal menyimpan ke database:\n" + ex.Message, "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 
@@ -519,6 +541,17 @@ namespace CarbonShift
             dgv.Rows.Clear();
             double totalSkor = 0, totalSurya = 0;
 
+            try
+            {
+                AppState.History = RecommendationRepository.GetHistory(AuthService.UserId);
+            }
+            catch (Exception ex)
+            {
+                AppState.History = new List<ActivityRecord>();
+                lblSummary.Text = "Gagal memuat riwayat dari database: " + ex.Message;
+                return;
+            }
+
             foreach (ActivityRecord h in AppState.History)
             {
                 dgv.Rows.Add(
@@ -585,7 +618,15 @@ namespace CarbonShift
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (r == DialogResult.Yes)
             {
-                AppState.History.Clear();
+                try
+                {
+                    RecommendationRepository.DeleteHistory(AuthService.UserId);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Gagal menghapus riwayat:\n" + ex.Message, "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
                 Render();
             }
         }

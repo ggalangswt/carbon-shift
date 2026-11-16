@@ -6,3 +6,5 @@
 /Form/CarbonShift/bin/Debug/net10.0-windows
 /Form/CarbonShift/obj
 /Form/CarbonShift/CarbonShift.csproj.user
+/Form/CarbonShift/database.config
+/.vs
