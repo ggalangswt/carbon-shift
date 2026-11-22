@@ -31,3 +31,9 @@ Hindari dashboard dekoratif, klaim emisi tanpa data, statistik energi aktual dar
 ## Accessibility & Inclusion
 
 UI Bahasa Indonesia, navigasi keyboard, kontrol standar Windows, teks yang membungkus, dan panel input yang dapat digulir saat ruang atau skala layar berubah. Kategori skor memiliki teks selain warna.
+
+## Bahasa dokumentasi
+
+- Hindari em dash dan titik koma dalam narasi Markdown maupun PDF.
+- Gunakan titik dua hanya untuk mengantar daftar yang ditulis pada baris berikutnya.
+- Pertahankan sintaks yang diperlukan dalam kode, URL, path, dan format waktu.

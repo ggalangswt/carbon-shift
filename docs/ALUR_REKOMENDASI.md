@@ -26,23 +26,23 @@ Koneksi PostgreSQL menggunakan Npgsql, terpisah dari kedua API HTTP tersebut.
 ```text
 Pengguna mencari dan memilih kota
     ↓
-Geocoding: nama kota → koordinat + zona waktu
+Geocoding mengubah nama kota menjadi koordinat dan zona waktu
     ↓
-WeatherService: ambil forecast dari API atau cache yang sesuai
+WeatherService mengambil forecast dari API atau cache yang sesuai
     ↓
 Parse dan validasi data → interval forecast per jam
     ↓
-ForecastSnapshot: lokasi + waktu pengambilan + sumber + data
+ForecastSnapshot menyimpan lokasi, waktu pengambilan, sumber, dan data
     ↓
-ScheduleRequest: aktivitas + tanggal + durasi + rentang + estimasi kWh
+ScheduleRequest memuat aktivitas, tanggal, durasi, rentang, dan estimasi kWh
     ↓
-RecommendationEngine: bentuk kandidat yang valid
+RecommendationEngine membentuk kandidat yang valid
     ↓
-GreenScoreCalculator: hitung skor setiap kandidat
+GreenScoreCalculator menghitung skor setiap kandidat
     ↓
 Urutkan skor tertinggi, lalu waktu paling awal
     ↓
-RecommendationResult: rekomendasi terbaik + alternatif + penjelasan
+RecommendationResult memuat rekomendasi terbaik, alternatif, dan penjelasan
     ↓
 Tampilkan hasil → pengguna menyimpan → PostgreSQL
 ```
@@ -57,13 +57,13 @@ Tampilkan hasil → pengguna menyimpan → PostgreSQL
 | `shortwave_radiation` | Radiasi matahari dalam W/m² | Komponen potensi surya. |
 | `is_day` | `1` untuk siang, `0` untuk malam | Proporsi interval siang dalam kandidat. |
 
-Tanggal dan jam mengikuti lokasi terpilih: `Asia/Jakarta`, `Asia/Makassar`, atau `Asia/Jayapura`. Aplikasi menggunakan timestamp lengkap dengan offset zona waktu, bukan hanya angka jam yang dapat tertukar antarhari.
+Tanggal dan jam mengikuti lokasi terpilih, yaitu `Asia/Jakarta`, `Asia/Makassar`, atau `Asia/Jayapura`. Aplikasi menggunakan timestamp lengkap dengan offset zona waktu, bukan hanya angka jam yang dapat tertukar antarhari.
 
 ### Pemetaan interval radiasi
 
 `shortwave_radiation` merupakan rata-rata radiasi pada jam sebelumnya. Data radiasi bertimestamp **12.00** dipakai untuk interval **11.00–12.00**.
 
-Untuk membentuk interval `[t, t+1)`:
+Untuk membentuk interval `[t, t+1)`, aplikasi mengikuti aturan berikut:
 
 - Suhu, awan, dan indikator siang diambil dari timestamp `t`.
 - Radiasi diambil dari timestamp `t+1`.
@@ -86,18 +86,18 @@ Permintaan HTTP memiliki timeout 10 detik per percobaan. Kegagalan sementara, se
 
 ## 5. Input aktivitas dan pembentukan kandidat
 
-Contoh input:
+Berikut contoh input pengguna.
 
 ```text
-Aktivitas           : Charge laptop
-Tanggal pelaksanaan : Besok
-Durasi              : 2 jam
-Boleh mulai         : 08.00
-Harus selesai       : 12.00
-Estimasi energi     : 0,12 kWh untuk seluruh aktivitas
+Aktivitas           = Charge laptop
+Tanggal pelaksanaan = Besok
+Durasi              = 2 jam
+Boleh mulai         = 08.00
+Harus selesai       = 12.00
+Estimasi energi     = 0,12 kWh untuk seluruh aktivitas
 ```
 
-Engine menggeser waktu mulai per satu jam selama aktivitas masih dapat selesai sebelum batas akhir:
+Engine menggeser waktu mulai per satu jam selama aktivitas masih dapat selesai sebelum batas akhir. Contohnya sebagai berikut.
 
 | Kandidat | Interval forecast yang diperlukan |
 | --- | --- |
@@ -120,7 +120,7 @@ Jika tidak ada kandidat yang memenuhi syarat, aplikasi memberikan pesan bahwa ti
 
 Perhitungan internal menggunakan skala **0–1**. UI, CSV, dan nilai skor di database menggunakan skala **0–100**.
 
-### Metode default: berbobot
+### Metode berbobot (default)
 
 Untuk setiap kandidat, aplikasi menghitung rata-rata radiasi dan awan dari seluruh interval di dalamnya, serta proporsi interval siang.
 
@@ -141,7 +141,7 @@ GreenScoreTampilan = SkorInternal × 100
 
 `Clamp(x, 0, 1)` membatasi nilai agar tidak kurang dari 0 atau lebih dari 1. Normalisasi surya dilakukan **setelah merata-ratakan radiasi satu kandidat**.
 
-Bobot default:
+Metode ini memakai bobot default berikut.
 
 | Komponen | Bobot | Arti |
 | --- | ---: | --- |
@@ -149,9 +149,9 @@ Bobot default:
 | Langit cerah | 20% | Tutupan awan yang lebih rendah memberi skor lebih besar. |
 | Siang | 10% | Kandidat dengan proporsi interval siang lebih banyak mendapat skor lebih besar. |
 
-Referensi **900 W/m²** dan bobot **70/20/10** merupakan pilihan aturan awal dalam kode. Nilai tersebut belum merupakan hasil kalibrasi empiris atau standar universal. Constructor kalkulator mendukung bobot berbeda dan menormalisasi totalnya; UI saat ini memakai bobot default.
+Referensi **900 W/m²** dan bobot **70/20/10** merupakan pilihan aturan awal dalam kode. Nilai tersebut belum merupakan hasil kalibrasi empiris atau standar universal. Constructor kalkulator mendukung bobot berbeda dan menormalisasi totalnya. UI saat ini memakai bobot default.
 
-### Metode alternatif: potensi surya
+### Metode potensi surya (alternatif)
 
 ```text
 SkorInternal = Clamp(rata-rata radiasi / 900, 0, 1)
@@ -171,7 +171,7 @@ Gunakan input aktivitas dua jam pada rentang 08.00–12.00 dan data ilustrasi be
 | 10.00–11.00 | 800 W/m² | 10% | Ya |
 | 11.00–12.00 | 850 W/m² | 10% | Ya |
 
-Perhitungan untuk kandidat **10.00–12.00**:
+Berikut perhitungan untuk kandidat **10.00–12.00**.
 
 ```text
 Rata-rata radiasi = (800 + 850) / 2 = 825 W/m²
@@ -187,7 +187,7 @@ GreenScoreTampilan
 ≈ 92,2
 ```
 
-Hasil seluruh kandidat dengan metode berbobot:
+Berikut hasil perbandingan kandidat dengan metode berbobot.
 
 | Peringkat | Kandidat | Rata-rata radiasi | Rata-rata awan | Green Score |
 | --- | --- | ---: | ---: | ---: |
@@ -219,7 +219,7 @@ Grafik batang menampilkan **potensi surya per jam** (`radiasi / 900`, dibatasi 0
 
 Saat pengguna menyimpan, repository menerima snapshot hasil tersebut, bukan membaca ulang field form. Hasil demo, hasil dengan waktu terbaik yang sudah lewat, dan forecast berumur lebih dari enam jam tidak boleh disimpan.
 
-Penyimpanan menggunakan transaksi pada lima tabel resmi:
+Aplikasi menyimpan hasil melalui transaksi pada lima tabel resmi.
 
 | Tabel | Data yang disimpan |
 | --- | --- |
@@ -227,9 +227,9 @@ Penyimpanan menggunakan transaksi pada lima tabel resmi:
 | `weather_forecast` | Lokasi beserta zona waktu, tanggal aktivitas, ringkasan forecast, dan waktu pengambilan. |
 | `time_slot` | Seluruh kandidat hasil perhitungan, tanggal/jam mulai-selesai, serta skor skala 0–100. |
 | `recommendation` | Kandidat terbaik yang dipilih engine, skor, dan penjelasan lengkap. |
-| `user` | Akun pemilik aktivitas yang direferensikan; tidak dibuat ulang saat menyimpan rekomendasi. |
+| `user` | Akun pemilik aktivitas yang direferensikan. Tidak dibuat ulang saat menyimpan rekomendasi. |
 
-Riwayat dibaca dari database berdasarkan akun pengguna. Snapshot data forecast per jam tidak disimpan lengkap ke tabel resmi; yang tersedia adalah ringkasan forecast dan evidence teks dalam `recommendation.explanation`.
+Riwayat dibaca dari database berdasarkan akun pengguna. Snapshot data forecast per jam tidak disimpan lengkap ke tabel resmi. Yang tersedia adalah ringkasan forecast dan evidence teks dalam `recommendation.explanation`.
 
 ## 10. Hal yang memengaruhi hasil dan batasannya
 
