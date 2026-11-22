@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="CarbonShift/CarbonShift.csproj" />
+  <Project Path="../tests/CarbonShift.Tests/CarbonShift.Tests.csproj" />
 </Solution>
