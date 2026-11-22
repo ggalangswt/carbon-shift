@@ -121,21 +121,25 @@ namespace CarbonShift
             CancelButton = btnClose;   // Esc = Close
         }
 
-        private void btnLogin_Click(object sender, EventArgs e)
+        private async void btnLogin_Click(object? sender, EventArgs e)
         {
-            string pesan;
-            if (AuthService.Login(tbEmail.Text.Trim(), tbPassword.Text, out pesan))
+            btnLogin.Enabled = false;
+            lblError.Text = "Memeriksa akun...";
+            try
             {
+                var user = await AuthService.LoginAsync(tbEmail.Text.Trim(), tbPassword.Text);
+                if (IsDisposed) return;
                 lblError.Text = "";
-                FormDashboard dashboard = new FormDashboard();
+                using FormDashboard dashboard = new FormDashboard(user);
                 this.Hide();
                 dashboard.ShowDialog();   // tunggu sampai dashboard ditutup
-                dashboard.Dispose();
                 tbPassword.Clear();
                 this.Show();              // kembali ke login
             }
-            else
+            catch (Exception ex)
             {
+                if (IsDisposed) return;
+                string pesan = ex is ArgumentException ? ex.Message : "Tidak dapat masuk. Periksa koneksi dan konfigurasi database.";
                 lblError.Text = pesan.Length > 45 ? pesan.Substring(0, 42) + "..." : pesan;
                 if (pesan.Length > 45)
                 {
@@ -144,9 +148,10 @@ namespace CarbonShift
                 tbPassword.Clear();
                 tbPassword.Focus();
             }
+            finally { if (!IsDisposed) btnLogin.Enabled = true; }
         }
 
-        private void btnClose_Click(object sender, EventArgs e)
+        private void btnClose_Click(object? sender, EventArgs e)
         {
             this.Close();
         }
