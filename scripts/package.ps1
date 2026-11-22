@@ -8,7 +8,8 @@ $artifactsRoot = Join-Path $repoRoot 'artifacts'
 $buildRoot = Join-Path $artifactsRoot ('build-' + [guid]::NewGuid().ToString('N'))
 $packageName = "CarbonShift-Submission-win-x64-$Version"
 $packageRoot = Join-Path $buildRoot $packageName
-New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
+$appRoot = Join-Path $packageRoot 'Aplikasi'
+New-Item -ItemType Directory -Force -Path $appRoot | Out-Null
 
 function Invoke-Checked {
     param([string]$Program, [string[]]$Arguments)
@@ -19,15 +20,15 @@ function Invoke-Checked {
 Push-Location $repoRoot
 try {
     Invoke-Checked -Program 'dotnet' -Arguments @('test','Form/CarbonShift.slnx','-c','Release','--nologo')
-    Invoke-Checked -Program 'dotnet' -Arguments @('publish','Form/CarbonShift/CarbonShift.csproj','-p:PublishProfile=Submission',"-p:Version=$Version",'-o',$packageRoot,'--nologo')
+    Invoke-Checked -Program 'dotnet' -Arguments @('publish','Form/CarbonShift/CarbonShift.csproj','-p:PublishProfile=Submission',"-p:Version=$Version",'-o',$appRoot,'--nologo')
     foreach ($runtimeFile in @('CarbonShift.exe','hostfxr.dll','coreclr.dll','System.Windows.Forms.dll','Npgsql.dll')) {
-        if (-not (Test-Path -LiteralPath (Join-Path $packageRoot $runtimeFile))) { throw "Incomplete runtime: $runtimeFile" }
+        if (-not (Test-Path -LiteralPath (Join-Path $appRoot $runtimeFile))) { throw "Incomplete runtime: $runtimeFile" }
     }
     $forbidden = @(Get-ChildItem -LiteralPath $packageRoot -File -Recurse | Where-Object {
         $_.Name -eq 'database.config' -or $_.Extension -eq '.pdb' -or $_.Name -like 'CarbonShift.Tests*'
     })
     if ($forbidden.Count -gt 0) { throw 'Publish includes private configuration, debug symbols, or test assemblies.' }
-    $runtime = Get-Content -Raw -LiteralPath (Join-Path $packageRoot 'CarbonShift.runtimeconfig.json') | ConvertFrom-Json
+    $runtime = Get-Content -Raw -LiteralPath (Join-Path $appRoot 'CarbonShift.runtimeconfig.json') | ConvertFrom-Json
     if ($runtime.runtimeOptions.frameworks -or -not $runtime.runtimeOptions.includedFrameworks) { throw 'Publish is not self-contained.' }
 
     $guideSource = Join-Path $packageRoot 'Dokumentasi'
@@ -45,16 +46,18 @@ try {
 CARBONSHIFT $Version - MULAI DI SINI
 1. Ekstrak SELURUH ZIP ke folder yang dapat ditulis, misalnya Documents.
 2. Pasang PostgreSQL lokal jika belum tersedia dan pastikan layanannya aktif.
-   Installer: https://www.postgresql.org/download/windows/
-3. Jalankan CarbonShift.exe. .NET/Visual Studio tidak perlu dipasang.
-4. Wizard: isi host localhost, port 5432, database carbonshift, dan akun PostgreSQL.
+   Unduh dari https://www.postgresql.org/download/windows/
+3. Buka folder Aplikasi, lalu jalankan CarbonShift.exe.
+   .NET/Visual Studio tidak perlu dipasang.
+4. Pada wizard, isi host localhost, port 5432, database carbonshift, dan akun PostgreSQL.
    Uji koneksi, lalu Siapkan dan simpan. Data DB lama yang sesuai tidak dihapus.
-5. Daftar akun atau masuk; pilih kota di Dashboard untuk mengambil forecast.
-Panduan bergambar: Panduan-Pengguna.pdf
-Sumber panduan: Dokumentasi/Panduan-Pengguna.md
-Jangan pindahkan hanya EXE; seluruh DLL/runtime di folder ini diperlukan.
+5. Daftar akun atau masuk, lalu pilih kota di Dashboard untuk mengambil forecast.
+Baca Panduan-Pengguna.pdf untuk panduan bergambar.
+Sumber panduan berada di Dokumentasi/Panduan-Pengguna.md.
+Folder Database berisi SQL untuk setup manual jika diperlukan.
+Pertahankan seluruh isi folder Aplikasi. Semua DLL/runtime di dalamnya diperlukan.
 PostgreSQL tidak disertakan. Forecast live membutuhkan internet.
-Akun contoh DB baru: admin@carbonshift.com / 12345.
+Untuk DB baru, akun contoh adalah admin@carbonshift.com dengan password 12345.
 Laporan testing Modul 10 kelompok ditambahkan terpisah oleh pengumpul.
 "@
     [System.IO.File]::WriteAllText((Join-Path $packageRoot 'MULAI-DI-SINI.txt'),$instructions,[System.Text.UTF8Encoding]::new($false))
