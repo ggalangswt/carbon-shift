@@ -7,6 +7,7 @@
 /Form/CarbonShift/obj
 /Form/CarbonShift/CarbonShift.csproj.user
 /Form/CarbonShift/database.config
+/Form/CarbonShift/supabase.config
 /.vs
 **/bin/
 **/obj/

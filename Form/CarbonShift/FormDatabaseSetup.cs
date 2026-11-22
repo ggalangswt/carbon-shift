@@ -26,7 +26,7 @@ public sealed class FormDatabaseSetup : Form
         root.RowStyles.Add(new(SizeType.AutoSize)); root.RowStyles.Add(new(SizeType.AutoSize));
         root.RowStyles.Add(new(SizeType.AutoSize)); root.RowStyles.Add(new(SizeType.Percent, 100)); root.RowStyles.Add(new(SizeType.AutoSize));
         root.Controls.Add(UiHelper.Label("Hubungkan database", true), 0, 0);
-        var note = UiHelper.Label("Gunakan akun PostgreSQL, bukan akun login CarbonShift. PostgreSQL harus sudah terpasang dan layanannya aktif.");
+        var note = UiHelper.Label("Gunakan akun PostgreSQL, bukan akun login CarbonShift. Untuk Supabase, isi koneksi Session pooler. PostgreSQL lokal tidak diperlukan jika memakai Supabase.");
         note.MaximumSize = new Size(570, 0); root.Controls.Add(note, 0, 1);
         fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(0, 10, 0, 10) };
         fields.ColumnStyles.Add(new(SizeType.Absolute, 155)); fields.ColumnStyles.Add(new(SizeType.Percent, 100));

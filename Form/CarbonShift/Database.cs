@@ -9,18 +9,23 @@ public static class Database
     private static readonly object Gate = new();
     private static string? activeConnection;
     public static DatabaseConfigurationStore ConfigurationStore { get; } = new();
+    private static string NormalizeConnection(string value)
+    {
+        var settings = DatabaseSettings.Parse(value);
+        return settings.IsSupabase ? settings.ToConnectionString() : value;
+    }
     public static string ConnectionString
     {
         get
         {
-            lock (Gate) return activeConnection ??= ConfigurationStore.Resolve()?.ConnectionString ??
-                throw new InvalidOperationException("Atur koneksi melalui Pengaturan database pada halaman Masuk.");
+            lock (Gate) return activeConnection ??= NormalizeConnection(ConfigurationStore.Resolve()?.ConnectionString ??
+                throw new InvalidOperationException("Atur koneksi melalui Pengaturan database pada halaman Masuk."));
         }
     }
     public static void Activate(string connectionString)
     {
         _ = new NpgsqlConnectionStringBuilder(connectionString);
-        lock (Gate) activeConnection = connectionString;
+        lock (Gate) activeConnection = NormalizeConnection(connectionString);
     }
     public static async Task<NpgsqlConnection> OpenConnectionAsync(CancellationToken ct = default)
     {

@@ -7,6 +7,8 @@ namespace CarbonShift;
 public sealed record DatabaseSettings(string Host, int Port, string DatabaseName, string Username, string Password,
     string? OriginalConnectionString = null)
 {
+    public bool IsSupabase => Host.Trim().EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase) ||
+        Host.Trim().EndsWith(".pooler.supabase.com", StringComparison.OrdinalIgnoreCase);
     public static DatabaseSettings Default => new("localhost", 5432, "carbonshift", "postgres", "");
     public static DatabaseSettings Parse(string value)
     {
@@ -20,13 +22,20 @@ public sealed record DatabaseSettings(string Host, int Port, string DatabaseName
         if (Port is < 1 or > 65535) throw new ArgumentException("Port harus antara 1 dan 65535.");
         if (string.IsNullOrWhiteSpace(DatabaseName) || DatabaseName.IndexOf('\0') >= 0 ||
             Encoding.UTF8.GetByteCount(DatabaseName) > 63 ||
-            DatabaseName is "postgres" or "template0" or "template1")
-            throw new ArgumentException("Gunakan nama database aplikasi (maksimal 63 byte), bukan postgres atau template.");
+            DatabaseName.Trim() is "template0" or "template1" ||
+            (DatabaseName.Trim() == "postgres" && !IsSupabase))
+            throw new ArgumentException("Gunakan nama database aplikasi (maksimal 63 byte). Nama postgres hanya didukung untuk Supabase.");
         var b = new NpgsqlConnectionStringBuilder(OriginalConnectionString ?? "")
         {
             Host = Host.Trim(), Port = Port, Database = DatabaseName.Trim(), Username = Username.Trim(),
-            Password = Password, Timeout = 5, CommandTimeout = 15, IncludeErrorDetail = false
+            Password = Password, Timeout = IsSupabase ? 15 : 5, CommandTimeout = 15, IncludeErrorDetail = false
         };
+        if (IsSupabase)
+        {
+            b.SslMode = SslMode.VerifyFull;
+            if (string.IsNullOrWhiteSpace(b.RootCertificate))
+                b.RootCertificate = Path.Combine(AppContext.BaseDirectory, "prod-ca-2021.crt");
+        }
         return b.ConnectionString;
     }
 }
@@ -199,6 +208,8 @@ public sealed class DatabaseSetupService
         var initial = await InspectAsync(settings, ct);
         if (initial.State == DatabaseReadiness.Ready) return initial;
         if (initial.State == DatabaseReadiness.Incompatible) throw new InvalidOperationException(initial.Message);
+        if (settings.IsSupabase)
+            throw new InvalidOperationException("Migrasikan schema dan data CarbonShift ke Supabase terlebih dahulu. Wizard tidak membuat database atau akun contoh di Supabase.");
         string value = settings.ToConnectionString();
         if (initial.State == DatabaseReadiness.Missing)
         {
