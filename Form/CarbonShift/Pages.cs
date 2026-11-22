@@ -1,634 +1,403 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.ComponentModel;
 using System.Globalization;
-using System.IO;
 using System.Text;
-using System.Windows.Forms;
 
-namespace CarbonShift
+namespace CarbonShift;
+
+public static class UiHelper
 {
-    // ===================== HELPER UI =====================
-
-    public static class UiHelper
+    public static readonly Color Hijau = Color.FromArgb(27, 94, 32);
+    public static readonly Color Surface = Color.FromArgb(246, 249, 246);
+    public static Button Button(string text, EventHandler? click = null, bool primary = false)
     {
-        public static readonly Color Hijau = Color.FromArgb(27, 94, 32);
-
-        public static Color WarnaSkor(double skor)
-        {
-            if (skor >= 0.7) return Color.FromArgb(220, 242, 220);
-            if (skor >= 0.4) return Color.FromArgb(255, 248, 220);
-            return Color.White;
-        }
-
-        public static void StyleGrid(DataGridView g)
-        {
-            g.ReadOnly = true;
-            g.AllowUserToAddRows = false;
-            g.AllowUserToDeleteRows = false;
-            g.AllowUserToResizeRows = false;
-            g.RowHeadersVisible = false;
-            g.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            g.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            g.BackgroundColor = Color.White;
-            g.BorderStyle = BorderStyle.None;
-            g.EnableHeadersVisualStyles = false;
-            g.ColumnHeadersDefaultCellStyle.BackColor = Hijau;
-            g.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            g.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            g.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            g.ColumnHeadersHeight = 32;
-        }
+        var b = new Button { Text = text, AutoSize = true, MinimumSize = new Size(100, 34),
+            Padding = new Padding(6), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Margin = new Padding(4) };
+        if (primary) { b.BackColor = Hijau; b.ForeColor = Color.White; }
+        if (click != null) b.Click += click;
+        return b;
     }
-
-    // ===================== GRAFIK BATANG =====================
-
-    public class BarChartPanel : Panel
+    public static Label Label(string text, bool title = false) => new()
     {
-        public List<WeatherForecast> Data = new List<WeatherForecast>();
-        public int HighlightStart = -1;
-        public int HighlightEnd = -1;
-
-        public BarChartPanel()
-        {
-            this.DoubleBuffered = true;
-            this.ResizeRedraw = true;
-            this.BackColor = Color.White;
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
-            Graphics g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-
-            if (Data == null || Data.Count == 0) return;
-
-            int left = 40, right = 10, top = 28, bottom = 26;
-            int w = Width - left - right;
-            int h = Height - top - bottom;
-            if (w <= 0 || h <= 0) return;
-
-            using (Font small = new Font("Segoe UI", 8))
-            using (Font bold = new Font("Segoe UI", 9, FontStyle.Bold))
-            using (Pen grid = new Pen(Color.Gainsboro))
-            {
-                g.DrawString("Potensi Surya per Jam (0 - 1)", bold, Brushes.DimGray, 8, 4);
-
-                if (HighlightStart >= 0)
-                {
-                    g.DrawString("Biru = jendela rekomendasi", small, Brushes.RoyalBlue, left + w - 150, 6);
-                }
-
-                // garis bantu 0, 0.5, 1.0
-                for (int k = 0; k <= 2; k++)
-                {
-                    float y = top + h - (h * k / 2f);
-                    g.DrawLine(grid, left, y, left + w, y);
-                    g.DrawString((k / 2f).ToString("0.0", CultureInfo.InvariantCulture), small, Brushes.Gray, 8, y - 7);
-                }
-
-                float barW = (float)w / Data.Count;
-                for (int i = 0; i < Data.Count; i++)
-                {
-                    WeatherForecast d = Data[i];
-                    float bh = (float)(d.SolarPotential * h);
-                    RectangleF r = new RectangleF(left + i * barW + 2, top + h - bh, barW - 4, bh);
-
-                    Color c;
-                    if (HighlightStart >= 0 && d.Jam >= HighlightStart && d.Jam < HighlightEnd)
-                        c = Color.DodgerBlue;
-                    else if (d.SolarPotential >= 0.7)
-                        c = Color.ForestGreen;
-                    else if (d.SolarPotential >= 0.4)
-                        c = Color.Goldenrod;
-                    else
-                        c = Color.Silver;
-
-                    using (SolidBrush b = new SolidBrush(c))
-                    {
-                        g.FillRectangle(b, r);
-                    }
-
-                    if (i % 2 == 0)
-                    {
-                        g.DrawString(d.Jam.ToString("00"), small, Brushes.Gray, left + i * barW, top + h + 5);
-                    }
-                }
-            }
-        }
+        Text = text, AutoSize = true, Margin = new Padding(4, 8, 4, 4),
+        ForeColor = title ? Hijau : Color.FromArgb(40, 52, 42),
+        Font = new Font("Segoe UI", title ? 15 : 10, title ? FontStyle.Bold : FontStyle.Regular)
+    };
+    public static TextBox Detail() => new()
+    {
+        Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill,
+        BackColor = Surface, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(4)
+    };
+    public static DataGridView Grid(params string[] titles)
+    {
+        var g = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false, AllowUserToResizeRows = false, RowHeadersVisible = false,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false,
+            BackgroundColor = Surface, BorderStyle = BorderStyle.None, EnableHeadersVisualStyles = false };
+        g.ColumnHeadersDefaultCellStyle.BackColor = Hijau;
+        g.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+        g.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        for (int i = 0; i < titles.Length; i++) g.Columns.Add("col" + i, titles[i]);
+        return g;
     }
-
-    // ===================== HALAMAN 1: FORECAST =====================
-
-    public class PageForecast : UserControl
+    public static Color ScoreColor(double score) => score >= .7 ? Color.FromArgb(220, 242, 220) :
+        score >= .4 ? Color.FromArgb(255, 248, 220) : Surface;
+    public static DateTime LocalToday(AppSession session) =>
+        (session.Location?.LocalNow(DateTimeOffset.UtcNow) ?? DateTimeOffset.Now).Date;
+    public static void DateRange(DateTimePicker picker, AppSession session)
     {
-        private BarChartPanel chart;
-        private DataGridView dgv;
-        private Button btnLive;
-        private Label lblStatus;
-
-        public PageForecast()
-        {
-            this.BackColor = Color.White;
-
-            dgv = new DataGridView();
-            dgv.Dock = DockStyle.Fill;
-            UiHelper.StyleGrid(dgv);
-            dgv.Columns.Add("jam", "Jam");
-            dgv.Columns.Add("awan", "Tutupan Awan (%)");
-            dgv.Columns.Add("rad", "Radiasi (W/m2)");
-            dgv.Columns.Add("surya", "Potensi Surya (0-1)");
-            dgv.Columns.Add("kondisi", "Kondisi");
-
-            chart = new BarChartPanel();
-            chart.Dock = DockStyle.Top;
-            chart.Height = 210;
-
-            Panel top = new Panel();
-            top.Dock = DockStyle.Top;
-            top.Height = 70;
-
-            Label title = new Label();
-            title.Text = "Weather & Solar Forecast";
-            title.Font = new Font("Segoe UI", 16, FontStyle.Bold);
-            title.ForeColor = UiHelper.Hijau;
-            title.AutoSize = true;
-            title.Location = new Point(16, 10);
-
-            lblStatus = new Label();
-            lblStatus.AutoSize = true;
-            lblStatus.ForeColor = Color.Gray;
-            lblStatus.Location = new Point(18, 44);
-
-            btnLive = new Button();
-            btnLive.Text = "Ambil Data Live";
-            btnLive.Size = new Size(150, 32);
-            btnLive.Location = new Point(330, 14);
-            btnLive.BackColor = Color.ForestGreen;
-            btnLive.ForeColor = Color.White;
-            btnLive.FlatStyle = FlatStyle.Flat;
-            btnLive.Click += btnLive_Click;
-
-            top.Controls.Add(title);
-            top.Controls.Add(lblStatus);
-            top.Controls.Add(btnLive);
-
-            // Urutan: Fill dulu, baru Top (yang terakhir ditambah berada paling atas)
-            Controls.Add(dgv);
-            Controls.Add(chart);
-            Controls.Add(top);
-        }
-
-        public void Render()
-        {
-            dgv.Rows.Clear();
-            foreach (WeatherForecast f in AppState.Forecast)
-            {
-                int idx = dgv.Rows.Add(
-                    string.Format("{0:00}:00", f.Jam),
-                    f.TutupanAwan.ToString("0"),
-                    f.Radiasi.ToString("0"),
-                    f.SolarPotential.ToString("0.00"),
-                    f.Kondisi);
-                dgv.Rows[idx].DefaultCellStyle.BackColor = UiHelper.WarnaSkor(f.SolarPotential);
-            }
-
-            chart.Data = AppState.Forecast;
-            chart.HighlightStart = -1;
-            chart.Invalidate();
-            lblStatus.Text = "Sumber data: " + AppState.SumberData;
-        }
-
-        private async void btnLive_Click(object sender, EventArgs e)
-        {
-            btnLive.Enabled = false;
-            lblStatus.Text = "Mengambil data dari Open-Meteo...";
-
-            try
-            {
-                AppState.Forecast = await WeatherService.GetLiveAsync();
-                AppState.SumberData = "Open-Meteo (live)";
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Gagal mengambil data live. Data sebelumnya tetap dipakai.\n\n" + ex.Message,
-                    "Koneksi Gagal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-
-            btnLive.Enabled = true;
-            Render();
-        }
+        var today = LocalToday(session);
+        if (picker.MinDate.Date == today && picker.MaxDate.Date == today.AddDays(2)) return;
+        // Broaden first to allow both forward and backward changes of location/date.
+        picker.MinDate = DateTimePicker.MinimumDateTime; picker.MaxDate = DateTimePicker.MaximumDateTime;
+        picker.Value = picker.Value.Date < today ? today : picker.Value.Date > today.AddDays(2) ? today.AddDays(2) : picker.Value.Date;
+        picker.MinDate = today; picker.MaxDate = today.AddDays(2);
     }
+    public static IReadOnlyList<WeatherForecast> Day(AppSession session, DateTime date) =>
+        session.Forecast?.Hours.Where(h => h.Start.Date == date.Date).OrderBy(h => h.Start).ToArray() ?? [];
+}
 
-    // ===================== HALAMAN 2: SCHEDULER =====================
+public interface IAppPage { Task RefreshAsync(); }
 
-    public class PageScheduler : UserControl
+public sealed class BarChartPanel : Panel
+{
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public IReadOnlyList<WeatherForecast> Data { get; set; } = [];
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public TimeSlot? Highlight { get; set; }
+    public BarChartPanel() { DoubleBuffered = true; ResizeRedraw = true; BackColor = UiHelper.Surface; Dock = DockStyle.Fill; }
+    protected override void OnPaint(PaintEventArgs e)
     {
-        private ComboBox cbActivity, cbMetode;
-        private NumericUpDown nudKwh, nudDurasi, nudMulai, nudSelesai;
-        private Button btnCari, btnSimpan;
-        private DataGridView dgv;
-        private BarChartPanel chart;
-        private Label lblBest;
-        private TimeSlot terbaik;
-        private List<TimeSlot> hasilSlot = new List<TimeSlot>();
-
-        private readonly Dictionary<string, double> preset = new Dictionary<string, double>
+        base.OnPaint(e);
+        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var font = new Font("Segoe UI", 9);
+        g.DrawString("Potensi surya per jam (0–100)", font, Brushes.DarkSlateGray, 8, 5);
+        if (Data.Count == 0) { g.DrawString("Pilih lokasi dan ambil forecast untuk melihat grafik.", font, Brushes.Gray, 12, 45); return; }
+        int left = 40, top = 30, width = Width - 52, height = Height - 60;
+        if (width < 24 || height < 20) return;
+        using var pen = new Pen(Color.Gainsboro);
+        for (int k = 0; k <= 2; k++)
         {
-            { "Mengisi daya laptop", 0.06 },
-            { "Mencuci pakaian (mesin cuci)", 0.50 },
-            { "Menyetrika", 1.00 },
-            { "Mengisi daya motor listrik", 2.00 }
+            float y = top + height - height * k / 2f;
+            g.DrawLine(pen, left, y, left + width, y);
+            g.DrawString((k * 50).ToString(), font, Brushes.Gray, 4, y - 8);
+        }
+        float bar = width / 24f;
+        foreach (var item in Data)
+        {
+            float h = (float)item.SolarPotential * height;
+            var color = Highlight != null && item.Start >= Highlight.Start && item.Start < Highlight.End
+                ? Color.RoyalBlue : UiHelper.Hijau;
+            using var brush = new SolidBrush(color);
+            g.FillRectangle(brush, left + item.Start.Hour * bar + 1, top + height - h, Math.Max(1, bar - 2), h);
+        }
+        for (int i = 0; i < 24; i += 3)
+            g.DrawString(i.ToString("00"), font, Brushes.Gray, left + i * bar, top + height + 5);
+    }
+}
+
+public sealed class PageForecast : UserControl, IAppPage
+{
+    private readonly AppSession session;
+    private readonly DateTimePicker date = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dddd, dd MMM yyyy", Width = 245 };
+    private readonly BarChartPanel chart = new();
+    private readonly DataGridView grid = UiHelper.Grid("Jam", "Suhu (°C)", "Awan (%)", "Radiasi interval (W/m²)", "Potensi surya (0–100)", "Kondisi");
+    public PageForecast(AppSession session)
+    {
+        this.session = session; Dock = DockStyle.Fill; Padding = new Padding(12);
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
+        root.RowStyles.Add(new(SizeType.AutoSize)); root.RowStyles.Add(new(SizeType.AutoSize));
+        root.RowStyles.Add(new(SizeType.Absolute, 205)); root.RowStyles.Add(new(SizeType.Percent, 100));
+        root.Controls.Add(UiHelper.Label("Weather & Solar Forecast", true), 0, 0);
+        root.Controls.Add(date, 0, 1); root.Controls.Add(chart, 0, 2); root.Controls.Add(grid, 0, 3); Controls.Add(root);
+        date.ValueChanged += (_, _) => Render();
+    }
+    private void Render()
+    {
+        var day = UiHelper.Day(session, date.Value); grid.Rows.Clear();
+        foreach (var h in day)
+            grid.Rows.Add(h.Start.ToString("HH:mm"), h.Temperature.ToString("0.0"), h.TutupanAwan.ToString("0"),
+                h.Radiasi.ToString("0"), (h.SolarPotential * 100).ToString("0.0"), h.Kondisi);
+        chart.Data = day; chart.Invalidate();
+    }
+    public Task RefreshAsync() { UiHelper.DateRange(date, session); Render(); return Task.CompletedTask; }
+}
+
+public sealed class PageScheduler : UserControl, IAppPage
+{
+    private readonly AppSession session;
+    private readonly RecommendationState state = new();
+    private readonly ComboBox activity = new() { DropDownStyle = ComboBoxStyle.DropDown, MaxLength = 100 };
+    private readonly DateTimePicker date = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dddd, dd MMM yyyy" };
+    private readonly NumericUpDown energy = new() { Minimum = .01m, Maximum = 9999.99m, DecimalPlaces = 2, Increment = .05m, Value = .06m };
+    private readonly NumericUpDown duration = new() { Minimum = 1, Maximum = 12, Value = 2 };
+    private readonly NumericUpDown earliest = new() { Minimum = 0, Maximum = 23, Value = 6 };
+    private readonly NumericUpDown latest = new() { Minimum = 1, Maximum = 24, Value = 18 };
+    private readonly ComboBox method = new() { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Nama" };
+    private readonly DataGridView grid = UiHelper.Grid("Peringkat", "Rentang", "Green Score (0–100)", "Kategori");
+    private readonly BarChartPanel chart = new();
+    private readonly TextBox explanation = UiHelper.Detail();
+    private readonly Button find, save;
+    private readonly TableLayoutPanel input;
+    private readonly System.Windows.Forms.Timer timer = new() { Interval = 1000 };
+    private bool busy;
+    private readonly Dictionary<string, decimal> presets = new()
+    {
+        ["Mengisi daya laptop"] = .06m, ["Mencuci pakaian (mesin cuci)"] = .50m,
+        ["Menyetrika"] = 1m, ["Mengisi daya motor listrik"] = 2m
+    };
+    public PageScheduler(AppSession session, Action saved)
+    {
+        this.session = session; Dock = DockStyle.Fill; Padding = new Padding(8);
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
+        root.ColumnStyles.Add(new(SizeType.Absolute, 305)); root.ColumnStyles.Add(new(SizeType.Percent, 100));
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = UiHelper.Surface };
+        input = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(8) };
+        input.ColumnStyles.Add(new(SizeType.Percent, 100));
+        input.Controls.Add(UiHelper.Label("Buat jadwal", true));
+        void Field(string label, Control control)
+        {
+            input.Controls.Add(UiHelper.Label(label)); control.Dock = DockStyle.Top; control.Margin = new Padding(4, 0, 4, 6); input.Controls.Add(control);
+        }
+        foreach (var name in presets.Keys) activity.Items.Add(name);
+        activity.SelectedIndex = 0;
+        method.Items.Add(new WeightedCalculator()); method.Items.Add(new SolarOnlyCalculator()); method.SelectedIndex = 0;
+        Field("Aktivitas (pilih atau ketik sendiri)", activity); Field("Tanggal pelaksanaan", date);
+        Field("Estimasi total energi aktivitas (kWh)", energy); Field("Durasi (jam)", duration);
+        Field("Boleh mulai paling awal (jam)", earliest); Field("Harus selesai paling lambat (jam)", latest);
+        Field("Metode Green Score", method);
+        find = UiHelper.Button("Cari rekomendasi", (_, _) => Generate(), true); find.Dock = DockStyle.Top;
+        save = UiHelper.Button("Simpan ke riwayat", async (_, _) => await SaveAsync(saved)); save.Dock = DockStyle.Top; save.Enabled = false;
+        input.Controls.Add(find); input.Controls.Add(save); scroll.Controls.Add(input); root.Controls.Add(scroll, 0, 0);
+        var right = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
+        right.RowStyles.Add(new(SizeType.Absolute, 185)); right.RowStyles.Add(new(SizeType.Percent, 48));
+        right.RowStyles.Add(new(SizeType.Percent, 52));
+        right.Controls.Add(chart, 0, 0); right.Controls.Add(grid, 0, 1); right.Controls.Add(explanation, 0, 2);
+        root.Controls.Add(right, 1, 0); Controls.Add(root);
+        activity.TextChanged += (_, _) => InvalidateResult();
+        activity.SelectedIndexChanged += (_, _) => { if (presets.TryGetValue(activity.Text, out var value)) energy.Value = value; };
+        foreach (var n in new[] { energy, duration, earliest, latest }) n.ValueChanged += (_, _) => InvalidateResult();
+        date.ValueChanged += (_, _) => { InvalidateResult(); RenderChart(); };
+        method.SelectedIndexChanged += (_, _) => InvalidateResult();
+        session.Changed += SessionChanged;
+        timer.Tick += (_, _) =>
+        {
+            UiHelper.DateRange(date, session);
+            if (state.Result is not { } result || busy) return;
+            try { RecommendationPolicy.EnsureSaveable(result, DateTimeOffset.UtcNow); }
+            catch (InvalidOperationException) when (!result.Forecast.IsDemo) { InvalidateResult("Waktu atau forecast sudah kedaluwarsa. Hitung ulang rekomendasi."); }
         };
-
-        public PageScheduler()
+        timer.Start();
+        InvalidateResult();
+    }
+    private void SessionChanged(object? sender, EventArgs e) { InvalidateResult(); _ = RefreshAsync(); }
+    private void InvalidateResult(string? message = null)
+    {
+        state.Invalidate(); save.Enabled = false; grid.Rows.Clear(); chart.Highlight = null; chart.Invalidate();
+        explanation.Text = message ?? "Isi aktivitas, pilih tanggal dan rentang waktu, lalu cari rekomendasi.\r\n\r\n" + RecommendationResult.ScoreMeaning;
+    }
+    private void RenderChart() { chart.Data = UiHelper.Day(session, date.Value); chart.Invalidate(); }
+    private void Generate()
+    {
+        InvalidateResult();
+        try
         {
-            this.BackColor = Color.White;
-
-            // ---------- Panel kiri: input ----------
-            Panel pnlInput = new Panel();
-            pnlInput.Dock = DockStyle.Left;
-            pnlInput.Width = 290;
-            pnlInput.BackColor = Color.FromArgb(245, 248, 245);
-
-            Label title = new Label();
-            title.Text = "Smart Activity Scheduler";
-            title.Font = new Font("Segoe UI", 13, FontStyle.Bold);
-            title.ForeColor = UiHelper.Hijau;
-            title.AutoSize = true;
-            title.Location = new Point(16, 14);
-
-            cbActivity = new ComboBox();
-            cbActivity.DropDownStyle = ComboBoxStyle.DropDownList;
-            cbActivity.Location = new Point(20, 84);
-            cbActivity.Width = 250;
-            foreach (string nama in preset.Keys) cbActivity.Items.Add(nama);
-            cbActivity.SelectedIndexChanged += cbActivity_SelectedIndexChanged;
-
-            nudKwh = new NumericUpDown();
-            nudKwh.Location = new Point(20, 146);
-            nudKwh.Width = 250;
-            nudKwh.DecimalPlaces = 2;
-            nudKwh.Increment = 0.05M;
-            nudKwh.Minimum = 0.01M;
-            nudKwh.Maximum = 50M;
-            nudKwh.Value = 0.06M;
-
-            nudDurasi = new NumericUpDown();
-            nudDurasi.Location = new Point(20, 208);
-            nudDurasi.Width = 250;
-            nudDurasi.Minimum = 1;
-            nudDurasi.Maximum = 12;
-            nudDurasi.Value = 2;
-
-            nudMulai = new NumericUpDown();
-            nudMulai.Location = new Point(20, 270);
-            nudMulai.Width = 250;
-            nudMulai.Minimum = 0;
-            nudMulai.Maximum = 23;
-            nudMulai.Value = 6;
-
-            nudSelesai = new NumericUpDown();
-            nudSelesai.Location = new Point(20, 332);
-            nudSelesai.Width = 250;
-            nudSelesai.Minimum = 1;
-            nudSelesai.Maximum = 24;
-            nudSelesai.Value = 18;
-
-            cbMetode = new ComboBox();
-            cbMetode.DropDownStyle = ComboBoxStyle.DropDownList;
-            cbMetode.Location = new Point(20, 394);
-            cbMetode.Width = 250;
-            cbMetode.DisplayMember = "Nama";
-            cbMetode.Items.Add(new WeightedCalculator());
-            cbMetode.Items.Add(new SolarOnlyCalculator());
-            cbMetode.SelectedIndex = 0;
-
-            btnCari = new Button();
-            btnCari.Text = "Cari Rekomendasi";
-            btnCari.Location = new Point(20, 440);
-            btnCari.Size = new Size(250, 38);
-            btnCari.BackColor = Color.ForestGreen;
-            btnCari.ForeColor = Color.White;
-            btnCari.FlatStyle = FlatStyle.Flat;
-            btnCari.Click += btnCari_Click;
-
-            btnSimpan = new Button();
-            btnSimpan.Text = "Simpan ke Riwayat";
-            btnSimpan.Location = new Point(20, 485);
-            btnSimpan.Size = new Size(250, 34);
-            btnSimpan.Enabled = false;
-            btnSimpan.Click += btnSimpan_Click;
-
-            pnlInput.Controls.Add(title);
-            pnlInput.Controls.Add(BuatLabel("Aktivitas", 62));
-            pnlInput.Controls.Add(cbActivity);
-            pnlInput.Controls.Add(BuatLabel("Perkiraan energi (kWh, boleh diubah)", 124));
-            pnlInput.Controls.Add(nudKwh);
-            pnlInput.Controls.Add(BuatLabel("Durasi (jam)", 186));
-            pnlInput.Controls.Add(nudDurasi);
-            pnlInput.Controls.Add(BuatLabel("Boleh mulai paling awal (jam)", 248));
-            pnlInput.Controls.Add(nudMulai);
-            pnlInput.Controls.Add(BuatLabel("Harus selesai paling lambat (jam)", 310));
-            pnlInput.Controls.Add(nudSelesai);
-            pnlInput.Controls.Add(BuatLabel("Metode Green Score", 372));
-            pnlInput.Controls.Add(cbMetode);
-            pnlInput.Controls.Add(btnCari);
-            pnlInput.Controls.Add(btnSimpan);
-
-            // ---------- Panel kanan: hasil ----------
-            Panel pnlRight = new Panel();
-            pnlRight.Dock = DockStyle.Fill;
-
-            dgv = new DataGridView();
-            dgv.Dock = DockStyle.Fill;
-            UiHelper.StyleGrid(dgv);
-            dgv.Columns.Add("rank", "Peringkat");
-            dgv.Columns.Add("rentang", "Rentang Waktu");
-            dgv.Columns.Add("skor", "Green Score");
-            dgv.Columns.Add("label", "Kategori");
-
-            Panel pnlBest = new Panel();
-            pnlBest.Dock = DockStyle.Bottom;
-            pnlBest.Height = 135;
-            pnlBest.BackColor = Color.FromArgb(232, 245, 233);
-            pnlBest.Padding = new Padding(12);
-
-            lblBest = new Label();
-            lblBest.Dock = DockStyle.Fill;
-            lblBest.Font = new Font("Segoe UI", 10);
-            lblBest.Text = "Isi form di kiri lalu klik \"Cari Rekomendasi\".";
-            pnlBest.Controls.Add(lblBest);
-
-            chart = new BarChartPanel();
-            chart.Dock = DockStyle.Top;
-            chart.Height = 200;
-
-            pnlRight.Controls.Add(dgv);
-            pnlRight.Controls.Add(pnlBest);
-            pnlRight.Controls.Add(chart);
-
-            Controls.Add(pnlRight);
-            Controls.Add(pnlInput);
-
-            cbActivity.SelectedIndex = 0;
+            if (session.Forecast == null) throw new InvalidOperationException("Pilih lokasi dan ambil forecast terlebih dahulu.");
+            if (!session.Forecast.IsDemo && DateTimeOffset.UtcNow - session.Forecast.FetchedAt > TimeSpan.FromHours(6))
+                throw new InvalidOperationException("Forecast kedaluwarsa. Ambil ulang terlebih dahulu.");
+            var request = new ScheduleRequest(activity.Text.Trim(), (int)duration.Value, energy.Value,
+                DateOnly.FromDateTime(date.Value), (int)earliest.Value, (int)latest.Value);
+            var result = RecommendationEngine.Generate(request, session.Forecast, DateTimeOffset.UtcNow,
+                (GreenScoreCalculator)method.SelectedItem!);
+            state.Set(result);
+            foreach (var (slot, index) in result.Slots.Take(10).Select((s, i) => (s, i)))
+            {
+                int row = grid.Rows.Add(index + 1, slot.Rentang, (slot.GreenScore * 100).ToString("0.0"), slot.Label);
+                grid.Rows[row].DefaultCellStyle.BackColor = UiHelper.ScoreColor(slot.GreenScore);
+            }
+            chart.Highlight = result.Best; chart.Invalidate(); explanation.Text = result.Explanation;
+            save.Enabled = state.CanSave;
         }
-
-        private Label BuatLabel(string teks, int y)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { explanation.Text = ex.Message; }
+    }
+    private async Task SaveAsync(Action saved)
+    {
+        if (busy || !state.CanSave || state.Result is not { } result) return;
+        busy = true; input.Enabled = false;
+        try
         {
-            Label l = new Label();
-            l.Text = teks;
-            l.AutoSize = true;
-            l.Location = new Point(20, y);
-            return l;
+            await RecommendationRepository.SaveAsync(session.User.UserId, result);
+            if (IsDisposed) return;
+            bool stillCurrent = ReferenceEquals(state.Result, result);
+            state.Invalidate(); save.Enabled = false;
+            if (stillCurrent) explanation.Text = "Jadwal berhasil disimpan ke riwayat.\r\n\r\n" + result.Explanation;
+            saved();
         }
-
-        public void RefreshChart()
+        catch (Exception ex)
         {
-            chart.Data = AppState.Forecast;
-            chart.HighlightStart = -1;
-            chart.Invalidate();
+            if (!IsDisposed) explanation.Text = "Gagal menyimpan jadwal. Periksa koneksi lalu coba lagi.\r\n" + ex.Message;
         }
-
-        private void cbActivity_SelectedIndexChanged(object sender, EventArgs e)
+        finally
         {
-            double kwh;
-            if (cbActivity.SelectedItem != null && preset.TryGetValue(cbActivity.SelectedItem.ToString(), out kwh))
-            {
-                nudKwh.Value = (decimal)kwh;
-            }
-        }
-
-        private void btnCari_Click(object sender, EventArgs e)
-        {
-            int durasi = (int)nudDurasi.Value;
-            int mulai = (int)nudMulai.Value;
-            int selesai = (int)nudSelesai.Value;
-
-            if (selesai - mulai < durasi)
-            {
-                MessageBox.Show("Rentang waktu lebih pendek dari durasi aktivitas.\nPerlebar rentang atau kurangi durasi.",
-                    "Input Tidak Valid", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            GreenScoreCalculator calculator = (GreenScoreCalculator)cbMetode.SelectedItem;
-            List<TimeSlot> slots = RecommendationEngine.Generate(AppState.Forecast, durasi, mulai, selesai, calculator);
-            if (slots.Count == 0)
-            {
-                MessageBox.Show("Tidak ada slot yang cocok pada data prakiraan.", "Info",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            dgv.Rows.Clear();
-            for (int i = 0; i < slots.Count && i < 10; i++)
-            {
-                int idx = dgv.Rows.Add(i + 1, slots[i].Rentang, slots[i].GreenScore.ToString("0.00"), slots[i].Label);
-                dgv.Rows[idx].DefaultCellStyle.BackColor = UiHelper.WarnaSkor(slots[i].GreenScore);
-            }
-
-            terbaik = slots[0];
-            hasilSlot = slots;
-
-            chart.Data = AppState.Forecast;
-            chart.HighlightStart = terbaik.StartHour;
-            chart.HighlightEnd = terbaik.EndHour;
-            chart.Invalidate();
-
-            lblBest.Text = string.Format("Waktu terbaik: {0}   |   Green Score: {1:0.00} ({2})\nMetode: {3}   |   {4}\n{5}\n{6}",
-                terbaik.Rentang, terbaik.GreenScore, terbaik.Label, calculator.Nama, calculator.Rumus, terbaik.Bukti, terbaik.Explanation);
-
-            btnSimpan.Enabled = true;
-        }
-
-        private void btnSimpan_Click(object sender, EventArgs e)
-        {
-            if (terbaik == null) return;
-
-            try
-            {
-                int id = RecommendationRepository.Save(
-                    AuthService.UserId,
-                    cbActivity.Text,
-                    (int)nudDurasi.Value,
-                    (double)nudKwh.Value,
-                    hasilSlot,
-                    terbaik,
-                    AppState.Forecast,
-                    WeatherService.Lokasi);
-
-                btnSimpan.Enabled = false;
-                MessageBox.Show("Rekomendasi disimpan ke database (recommendation_id = " + id + ").", "Tersimpan",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Gagal menyimpan ke database:\n" + ex.Message, "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            busy = false;
+            if (!IsDisposed) { input.Enabled = true; save.Enabled = state.CanSave; }
         }
     }
-
-    // ===================== HALAMAN 3: RIWAYAT =====================
-
-    public class PageHistory : UserControl
+    public Task RefreshAsync() { UiHelper.DateRange(date, session); RenderChart(); return Task.CompletedTask; }
+    protected override void Dispose(bool disposing)
     {
-        private DataGridView dgv;
-        private Label lblSummary;
+        if (disposing) { session.Changed -= SessionChanged; timer.Dispose(); }
+        base.Dispose(disposing);
+    }
+}
 
-        public PageHistory()
+public static class HistoryCsv
+{
+    public static string Export(IEnumerable<ActivityRecord> rows)
+    {
+        static string Cell(string value)
         {
-            this.BackColor = Color.White;
-
-            dgv = new DataGridView();
-            dgv.Dock = DockStyle.Fill;
-            UiHelper.StyleGrid(dgv);
-            dgv.Columns.Add("dibuat", "Dibuat");
-            dgv.Columns.Add("nama", "Aktivitas");
-            dgv.Columns.Add("durasi", "Durasi (jam)");
-            dgv.Columns.Add("kwh", "Energi (kWh)");
-            dgv.Columns.Add("rentang", "Waktu Terbaik");
-            dgv.Columns.Add("skor", "Green Score");
-            dgv.Columns.Add("surya", "Perkiraan Porsi Surya (kWh)");
-
-            lblSummary = new Label();
-            lblSummary.Dock = DockStyle.Bottom;
-            lblSummary.Height = 36;
-            lblSummary.TextAlign = ContentAlignment.MiddleLeft;
-            lblSummary.Padding = new Padding(12, 0, 0, 0);
-            lblSummary.BackColor = Color.FromArgb(232, 245, 233);
-
-            Panel top = new Panel();
-            top.Dock = DockStyle.Top;
-            top.Height = 60;
-
-            Label title = new Label();
-            title.Text = "Riwayat Rekomendasi";
-            title.Font = new Font("Segoe UI", 16, FontStyle.Bold);
-            title.ForeColor = UiHelper.Hijau;
-            title.AutoSize = true;
-            title.Location = new Point(16, 14);
-
-            Button btnExport = new Button();
-            btnExport.Text = "Export CSV";
-            btnExport.Size = new Size(110, 32);
-            btnExport.Location = new Point(330, 14);
-            btnExport.BackColor = Color.ForestGreen;
-            btnExport.ForeColor = Color.White;
-            btnExport.FlatStyle = FlatStyle.Flat;
-            btnExport.Click += btnExport_Click;
-
-            Button btnHapus = new Button();
-            btnHapus.Text = "Hapus Semua";
-            btnHapus.Size = new Size(110, 32);
-            btnHapus.Location = new Point(450, 14);
-            btnHapus.Click += btnHapus_Click;
-
-            top.Controls.Add(title);
-            top.Controls.Add(btnExport);
-            top.Controls.Add(btnHapus);
-
-            Controls.Add(dgv);
-            Controls.Add(lblSummary);
-            Controls.Add(top);
+            // Quoting alone does not prevent spreadsheet applications from evaluating a formula.
+            if (value.Length > 0 && "=+-@\t\r\n".Contains(value[0])) value = "'" + value;
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
         }
+        var text = new StringBuilder("Dibuat,Aktivitas,TanggalPelaksanaan,Lokasi,DurasiJam,EstimasiKWh,Mulai,Selesai,GreenScore,Penjelasan\r\n");
+        foreach (var row in rows)
+            text.AppendLine(string.Join(",", Cell(row.Dibuat.ToString("yyyy-MM-dd HH:mm")), Cell(row.Nama),
+                Cell(row.Start.ToString("yyyy-MM-dd")), Cell(row.Lokasi),
+                (row.DurationMinutes / 60m).ToString("0.##", CultureInfo.InvariantCulture),
+                row.KWh.ToString("0.00", CultureInfo.InvariantCulture), Cell(row.Start.ToString("yyyy-MM-dd HH:mm")),
+                Cell(row.End.ToString("yyyy-MM-dd HH:mm")), (row.GreenScore * 100).ToString("0.00", CultureInfo.InvariantCulture), Cell(row.Explanation)));
+        return text.ToString();
+    }
+}
 
-        public void Render()
+public sealed class PageHistory : UserControl, IAppPage
+{
+    private readonly AppSession session;
+    private readonly DataGridView grid = UiHelper.Grid("Pelaksanaan", "Aktivitas", "Lokasi", "Durasi (jam)", "Estimasi kWh", "Waktu", "Skor (0–100)");
+    private readonly TextBox detail = UiHelper.Detail();
+    private readonly Label summary = UiHelper.Label("");
+    private readonly Button export, delete, refresh;
+    private IReadOnlyList<ActivityRecord> rows = [];
+    private bool busy;
+    public PageHistory(AppSession session, Action changed)
+    {
+        this.session = session; Dock = DockStyle.Fill; Padding = new Padding(12);
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
+        root.RowStyles.Add(new(SizeType.AutoSize)); root.RowStyles.Add(new(SizeType.AutoSize));
+        root.RowStyles.Add(new(SizeType.Percent, 60)); root.RowStyles.Add(new(SizeType.Percent, 40)); root.RowStyles.Add(new(SizeType.AutoSize));
+        root.Controls.Add(UiHelper.Label("Riwayat jadwal tersimpan", true), 0, 0);
+        var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true };
+        refresh = UiHelper.Button("Muat ulang", async (_, _) => await RefreshAsync());
+        export = UiHelper.Button("Export CSV", async (_, _) => await ExportAsync());
+        delete = UiHelper.Button("Hapus semua", async (_, _) =>
         {
-            dgv.Rows.Clear();
-            double totalSkor = 0, totalSurya = 0;
-
-            try
-            {
-                AppState.History = RecommendationRepository.GetHistory(AuthService.UserId);
-            }
-            catch (Exception ex)
-            {
-                AppState.History = new List<ActivityRecord>();
-                lblSummary.Text = "Gagal memuat riwayat dari database: " + ex.Message;
-                return;
-            }
-
-            foreach (ActivityRecord h in AppState.History)
-            {
-                dgv.Rows.Add(
-                    h.Dibuat.ToString("dd/MM/yyyy HH:mm"),
-                    h.Nama,
-                    h.DurasiJam,
-                    h.KWh.ToString("0.00"),
-                    h.Rentang,
-                    h.GreenScore.ToString("0.00"),
-                    h.PorsiSurya.ToString("0.00"));
-                totalSkor += h.GreenScore;
-                totalSurya += h.PorsiSurya;
-            }
-
-            int n = AppState.History.Count;
-            if (n == 0)
-            {
-                lblSummary.Text = "Belum ada riwayat. Simpan rekomendasi dari halaman Scheduler.";
-            }
-            else
-            {
-                lblSummary.Text = string.Format("Total aktivitas: {0}   |   Rata-rata Green Score: {1:0.00}   |   Perkiraan energi surya terpakai: {2:0.00} kWh",
-                    n, totalSkor / n, totalSurya);
-            }
-        }
-
-        private void btnExport_Click(object sender, EventArgs e)
+            if (busy || rows.Count == 0 || MessageBox.Show("Hapus semua jadwal tersimpan milik akun ini?", "Hapus riwayat",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            SetBusy(true);
+            try { await RecommendationRepository.DeleteHistoryAsync(session.User.UserId); changed(); }
+            catch (Exception ex) { detail.Text = "Gagal menghapus riwayat: " + ex.Message; }
+            finally { if (!IsDisposed) SetBusy(false); }
+            if (!IsDisposed) await RefreshAsync();
+        });
+        actions.Controls.AddRange([refresh, export, delete]);
+        root.Controls.Add(actions, 0, 1); root.Controls.Add(grid, 0, 2); root.Controls.Add(detail, 0, 3); root.Controls.Add(summary, 0, 4);
+        Controls.Add(root);
+        grid.SelectionChanged += (_, _) => ShowDetail();
+        SetBusy(false);
+    }
+    private void SetBusy(bool value)
+    {
+        busy = value; refresh.Enabled = !value; export.Enabled = delete.Enabled = !value && rows.Count > 0;
+    }
+    private void ShowDetail()
+    {
+        if (grid.CurrentRow?.Tag is not ActivityRecord row) return;
+        detail.Text = row.Explanation + (row.Explanation.Contains("Sumber:") ? "" :
+            "\r\n\r\nData lama: metode, evidence forecast, dan waktu pengambilan lengkap tidak tersedia.");
+    }
+    public async Task RefreshAsync()
+    {
+        if (busy) return;
+        SetBusy(true); summary.Text = "Memuat riwayat...";
+        rows = []; grid.Rows.Clear(); detail.Clear();
+        try
         {
-            if (AppState.History.Count == 0)
+            var loaded = await RecommendationRepository.GetHistoryAsync(session.User.UserId);
+            if (IsDisposed) return;
+            rows = loaded;
+            foreach (var row in rows)
             {
-                MessageBox.Show("Belum ada data untuk diexport.", "Info",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
+                int index = grid.Rows.Add(row.Start.ToString("dd MMM yyyy"), row.Nama, row.Lokasi, row.DurationMinutes / 60m,
+                    row.KWh.ToString("0.00"), row.Rentang, (row.GreenScore * 100).ToString("0.0"));
+                grid.Rows[index].Tag = row;
             }
-
-            using (SaveFileDialog dlg = new SaveFileDialog())
-            {
-                dlg.Filter = "CSV (*.csv)|*.csv";
-                dlg.FileName = "riwayat_carbonshift.csv";
-
-                if (dlg.ShowDialog() != DialogResult.OK) return;
-
-                using (StreamWriter sw = new StreamWriter(dlg.FileName, false, Encoding.UTF8))
-                {
-                    sw.WriteLine("Dibuat,Aktivitas,DurasiJam,kWh,WaktuTerbaik,GreenScore");
-                    foreach (ActivityRecord h in AppState.History)
-                    {
-                        sw.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                            "{0:yyyy-MM-dd HH:mm},\"{1}\",{2},{3:0.00},{4},{5:0.00}",
-                            h.Dibuat, h.Nama, h.DurasiJam, h.KWh, h.Rentang, h.GreenScore));
-                    }
-                }
-
-                MessageBox.Show("Berhasil diexport.", "Export CSV",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+            summary.Text = rows.Count == 0 ? "Belum ada jadwal. Buat rekomendasi lalu simpan dari Scheduler." :
+                $"{rows.Count} jadwal tersimpan | Rata-rata skor {rows.Average(h => h.GreenScore) * 100:0.0}/100";
+            ShowDetail();
         }
-
-        private void btnHapus_Click(object sender, EventArgs e)
+        catch (Exception ex) { if (!IsDisposed) { summary.Text = "Riwayat gagal dimuat. Gunakan Muat ulang."; detail.Text = ex.Message; } }
+        finally { if (!IsDisposed) SetBusy(false); }
+    }
+    private async Task ExportAsync()
+    {
+        using var dialog = new SaveFileDialog { Filter = "CSV (*.csv)|*.csv", FileName = "riwayat_carbonshift.csv" };
+        if (rows.Count == 0 || dialog.ShowDialog() != DialogResult.OK) return;
+        try
         {
-            if (AppState.History.Count == 0) return;
-
-            DialogResult r = MessageBox.Show("Hapus seluruh riwayat?", "Konfirmasi",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (r == DialogResult.Yes)
-            {
-                try
-                {
-                    RecommendationRepository.DeleteHistory(AuthService.UserId);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Gagal menghapus riwayat:\n" + ex.Message, "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                Render();
-            }
+            var displayed = grid.Rows.Cast<DataGridViewRow>().Select(r => (ActivityRecord)r.Tag!).ToArray();
+            await File.WriteAllTextAsync(dialog.FileName, HistoryCsv.Export(displayed), new UTF8Encoding(true));
+            if (!IsDisposed) summary.Text = "CSV berhasil diekspor.";
         }
+        catch (Exception ex) { if (!IsDisposed) summary.Text = "Export gagal: " + ex.Message; }
+    }
+}
+
+public sealed class PageOverview : UserControl, IAppPage
+{
+    private readonly AppSession session;
+    private readonly Label stats = UiHelper.Label(""), next = UiHelper.Label("");
+    private readonly DateTimePicker date = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dddd, dd MMM yyyy", Width = 240 };
+    private readonly BarChartPanel chart = new();
+    private bool busy;
+    public PageOverview(AppSession session, Action schedule)
+    {
+        this.session = session; Dock = DockStyle.Fill; Padding = new Padding(16);
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7 };
+        root.RowStyles.Add(new(SizeType.AutoSize)); root.RowStyles.Add(new(SizeType.AutoSize)); root.RowStyles.Add(new(SizeType.AutoSize));
+        root.RowStyles.Add(new(SizeType.AutoSize)); root.RowStyles.Add(new(SizeType.AutoSize));
+        root.RowStyles.Add(new(SizeType.Percent, 100)); root.RowStyles.Add(new(SizeType.AutoSize));
+        root.Controls.Add(UiHelper.Label("Dashboard", true), 0, 0);
+        var actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
+        actions.Controls.Add(UiHelper.Button("Buat jadwal", (_, _) => schedule(), true));
+        actions.Controls.Add(UiHelper.Button("Muat ulang statistik", async (_, _) => await RefreshAsync()));
+        root.Controls.Add(actions, 0, 1); root.Controls.Add(stats, 0, 2); root.Controls.Add(next, 0, 3); root.Controls.Add(date, 0, 4);
+        root.Controls.Add(chart, 0, 5);
+        var note = UiHelper.Label(RecommendationResult.ScoreMeaning);
+        note.MaximumSize = new Size(700, 0); root.Controls.Add(note, 0, 6); Controls.Add(root);
+        next.MaximumSize = new Size(700, 0); stats.MaximumSize = new Size(700, 0);
+        date.ValueChanged += (_, _) => RenderChart();
+    }
+    private void RenderChart() { chart.Data = UiHelper.Day(session, date.Value); chart.Invalidate(); }
+    public async Task RefreshAsync()
+    {
+        UiHelper.DateRange(date, session); RenderChart();
+        if (busy) return;
+        busy = true; stats.Text = "Memuat statistik..."; next.Text = "";
+        try
+        {
+            var history = await RecommendationRepository.GetHistoryAsync(session.User.UserId);
+            if (IsDisposed) return;
+            var result = DashboardStatistics.Calculate(history, UiHelper.LocalToday(session), DateTimeOffset.UtcNow);
+            stats.Text = $"Minggu berjalan (Senin–Minggu): {result.WeeklyCount} jadwal tersimpan\r\nRata-rata Green Score: " +
+                (result.AverageScore is { } avg ? $"{avg * 100:0.0}/100" : "Belum ada data");
+            next.Text = result.Next is { } n ? $"Jadwal berikutnya: {n.Nama}\r\n{n.Rentang} | {n.Lokasi}" :
+                "Belum ada jadwal mendatang dengan zona waktu yang diketahui.";
+            if (history.Any(h => h.StartInstant == null)) next.Text += "\r\nZona waktu data lama tidak tersedia; jadwal tersebut tidak dipakai untuk menentukan jadwal berikutnya.";
+        }
+        catch (Exception) { if (!IsDisposed) stats.Text = "Statistik gagal dimuat. Periksa koneksi database lalu muat ulang."; }
+        finally { busy = false; }
     }
 }
