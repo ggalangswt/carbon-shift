@@ -18,4 +18,9 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../../database/schema.sql" LogicalName="CarbonShift.Database.Schema.sql" />
+    <EmbeddedResource Include="../../database/seed.sql" LogicalName="CarbonShift.Database.Seed.sql" />
+  </ItemGroup>
+
 </Project>

@@ -6,16 +6,21 @@ namespace CarbonShift;
 
 public static class Database
 {
+    private static readonly object Gate = new();
+    private static string? activeConnection;
+    public static DatabaseConfigurationStore ConfigurationStore { get; } = new();
     public static string ConnectionString
     {
         get
         {
-            string? env = Environment.GetEnvironmentVariable("CARBONSHIFT_DB");
-            if (!string.IsNullOrWhiteSpace(env)) return env.Trim();
-            string path = Path.Combine(AppContext.BaseDirectory, "database.config");
-            if (File.Exists(path) && !string.IsNullOrWhiteSpace(File.ReadAllText(path))) return File.ReadAllText(path).Trim();
-            throw new InvalidOperationException("Atur CARBONSHIFT_DB atau database.config sesuai database.config.example.");
+            lock (Gate) return activeConnection ??= ConfigurationStore.Resolve()?.ConnectionString ??
+                throw new InvalidOperationException("Atur koneksi melalui Pengaturan database pada halaman Masuk.");
         }
+    }
+    public static void Activate(string connectionString)
+    {
+        _ = new NpgsqlConnectionStringBuilder(connectionString);
+        lock (Gate) activeConnection = connectionString;
     }
     public static async Task<NpgsqlConnection> OpenConnectionAsync(CancellationToken ct = default)
     {

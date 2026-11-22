@@ -13,11 +13,14 @@ public sealed class FormLogin : Form
     private readonly Button btnSubmit;
     private readonly LinkLabel switchMode = new() { AutoSize = true, LinkColor = UiHelper.Hijau, Margin = new Padding(4, 12, 4, 4) };
     private readonly TableLayoutPanel nameField, confirmationField;
+    private readonly LinkLabel databaseLink = new() { Text = "Pengaturan database", AutoSize = true, LinkColor = UiHelper.Hijau, Margin = new Padding(4, 8, 4, 4) };
+    private readonly DatabaseConfigurationStore configuration;
     private readonly CancellationTokenSource lifetime = new();
-    private bool registering, busy, resourcesDisposed;
+    private bool registering, busy, resourcesDisposed, databaseReady;
 
-    public FormLogin()
+    public FormLogin(DatabaseConfigurationStore? configuration = null)
     {
+        this.configuration = configuration ?? Database.ConfigurationStore;
         Text = "CarbonShift - Masuk"; Font = new Font("Segoe UI", 10);
         StartPosition = FormStartPosition.CenterScreen; AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = UiHelper.Surface; MinimumSize = new Size(740, 500); ClientSize = new Size(800, 500);
@@ -57,11 +60,50 @@ public sealed class FormLogin : Form
         btnSubmit.Dock = DockStyle.Top; Add(btnSubmit);
         switchMode.LinkClicked += (_, _) => { if (!busy) SetMode(!registering); };
         Add(switchMode);
+        databaseLink.LinkClicked += async (_, _) => { if (!busy) await EnsureDatabaseAsync(true); };
+        Add(databaseLink);
         hint.Font = new Font(Font.FontFamily, 8); hint.ForeColor = Color.DimGray; Add(hint);
         scroll.Controls.Add(fields); root.Controls.Add(scroll, 1, 0); Controls.Add(root);
         AcceptButton = btnSubmit;
         FormClosing += (_, _) => lifetime.Cancel();
         SetMode(false);
+        SetBusy(true);
+        Shown += async (_, _) => await EnsureDatabaseAsync(false);
+    }
+
+    private async Task EnsureDatabaseAsync(bool forceWizard)
+    {
+        bool previouslyReady = databaseReady;
+        busy = true; SetBusy(true); lblError.Text = "Memeriksa database...";
+        try
+        {
+            DatabaseConfiguration? source = null;
+            try { source = configuration.Resolve(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            if (!forceWizard && source != null)
+            {
+                try
+                {
+                    var inspection = await new DatabaseSetupService().InspectAsync(DatabaseSettings.Parse(source.ConnectionString), lifetime.Token);
+                    if (IsDisposed) return;
+                    if (inspection.State == DatabaseReadiness.Ready)
+                    {
+                        Database.Activate(source.ConnectionString); databaseReady = true; lblError.Text = ""; return;
+                    }
+                }
+                catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
+                catch (Exception) { /* The wizard shows connection errors without exposing credentials. */ }
+            }
+            if (IsDisposed) return;
+            using var wizard = new FormDatabaseSetup(configuration, source);
+            if (wizard.ShowDialog(this) == DialogResult.OK)
+            {
+                databaseReady = true; tbPassword.Clear(); tbConfirmation.Clear(); lblError.Text = "Database siap. Silakan masuk atau daftar.";
+            }
+            else if (!previouslyReady) Close();
+            else lblError.Text = "Pengaturan sebelumnya tetap digunakan.";
+        }
+        finally { busy = false; if (!IsDisposed) SetBusy(false); }
     }
 
     private void SetMode(bool register)
@@ -79,7 +121,7 @@ public sealed class FormLogin : Form
 
     private async Task SubmitAsync()
     {
-        if (busy) return;
+        if (busy || !databaseReady) return;
         busy = true; SetBusy(true); lblError.ForeColor = UiHelper.Hijau;
         lblError.Text = registering ? "Membuat akun..." : "Memeriksa akun...";
         try
@@ -125,7 +167,8 @@ public sealed class FormLogin : Form
 
     private void SetBusy(bool value)
     {
-        btnSubmit.Enabled = switchMode.Enabled = !value;
+        btnSubmit.Enabled = switchMode.Enabled = !value && databaseReady;
+        databaseLink.Enabled = !value;
         tbName.Enabled = tbEmail.Enabled = tbPassword.Enabled = tbConfirmation.Enabled = chkShow.Enabled = !value;
     }
     protected override void Dispose(bool disposing)
