@@ -11,3 +11,6 @@
 **/bin/
 **/obj/
 **/TestResults/
+/artifacts/
+/output/
+/tmp/
