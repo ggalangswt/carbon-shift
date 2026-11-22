@@ -12,7 +12,7 @@
 
 ## MVP
 
-- Login PostgreSQL dengan password PBKDF2.
+- Daftar akun dan login PostgreSQL dengan password PBKDF2, serta riwayat terpisah per akun.
 - Pencarian kota Indonesia; lokasi terakhir disimpan per akun di perangkat.
 - Forecast per jam untuk hari ini, besok, dan lusa, mengikuti WIB/WITA/WIT.
 - Preset atau aktivitas custom, durasi 1–12 jam, rentang satu hari, dan estimasi total energi aktivitas (kWh).
@@ -24,7 +24,7 @@ Green Score adalah **skor kesesuaian waktu dengan potensi surya**, bukan persent
 
 ## Menjalankan aplikasi
 
-Penjelasan API, pengolahan forecast, rumus Green Score, contoh hitungan, dan penyimpanan hasil tersedia di [Alur Forecast, Green Score, dan Rekomendasi](docs/ALUR_REKOMENDASI.md).
+Penjelasan API, pengolahan forecast, rumus Green Score, contoh hitungan, dan penyimpanan hasil tersedia di [Alur Forecast, Green Score, dan Rekomendasi](docs/ALUR_REKOMENDASI.md). Alur daftar, login, dan pemisahan data pengguna dijelaskan di [Akun dan Autentikasi](docs/AKUN_DAN_AUTENTIKASI.md).
 
 Butuh Windows, .NET SDK 10, dan PostgreSQL. Gunakan database kelompok yang sudah ada. Untuk instalasi database baru saja:
 
@@ -40,6 +40,10 @@ dotnet run --project Form/CarbonShift/CarbonShift.csproj
 ```
 
 Akun seed: `admin@carbonshift.com` / `12345`. Di Dashboard, ketik nama kota, klik **Cari kota** (atau Enter), lalu pilih hasil dari dropdown pada field yang sama. Lokasi langsung diterapkan dan forecast diambil. Setelah itu buka **Scheduler**. Kontrol lokasi hanya tampil di Dashboard. Rentang waktu menggunakan jam lokal kota terpilih, bukan jam komputer. Kandidat hari ini hanya mencakup jam yang belum lewat. Jam selesai 24 berarti tengah malam berikutnya.
+
+## Membuat akun
+
+Untuk membuat akun sendiri, klik **Belum punya akun? Daftar** pada halaman Masuk. Isi nama, email, password 8–128 karakter, dan konfirmasi password, lalu klik **Buat akun**. Akun tersimpan di PostgreSQL dan langsung masuk Dashboard tanpa verifikasi email. Setelah logout, akun dapat dipakai kembali melalui mode Masuk. Akun baru dimulai dengan riwayat kosong; setiap akun hanya mengakses jadwalnya sendiri.
 
 ## Forecast dan penyimpanan lokal
 
@@ -69,5 +73,5 @@ dotnet test Form/CarbonShift.slnx
 
 Uji integrasi membuat akun sementara, menguji simpan/baca tanggal besok-lusa dan pemisahan akun, menjalankan alur UI sampai membuka ulang aplikasi, lalu membersihkan data akun uji. Tidak ada migrasi atau perubahan data pengguna yang sudah ada. Screenshot uji UI ditaruh di `%TEMP%\CarbonShift-preview`.
 
-Belum termasuk: recurring schedule, notifikasi, registrasi, edit aktivitas, pemilihan alternatif untuk disimpan, IoT, dan ML.
+Belum termasuk: recurring schedule, notifikasi, reset password, edit profil/aktivitas, pemilihan alternatif untuk disimpan, IoT, dan ML.
 
