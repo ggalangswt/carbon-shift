@@ -5,16 +5,17 @@ using Npgsql;
 
 namespace CarbonShift.Tests;
 
+[Collection("Desktop UI")]
 public class UiFlowTests
 {
-    private static T Field<T>(object obj, string name) =>
+    internal static T Field<T>(object obj, string name) =>
         (T)obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(obj)!;
-    private static async Task WaitFor(Func<bool> predicate)
+    internal static async Task WaitFor(Func<bool> predicate)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         while (!predicate()) await Task.Delay(50, timeout.Token);
     }
-    private static Task OnUiThread(Func<Task> action)
+    internal static Task OnUiThread(Func<Task> action)
     {
         var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>

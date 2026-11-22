@@ -3,6 +3,7 @@ using CarbonShift;
 
 namespace CarbonShift.Tests;
 
+[Collection("Desktop UI")]
 public class UiTests
 {
     private static void OnSta(Action action)
