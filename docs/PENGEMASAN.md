@@ -1,60 +1,59 @@
-# Membuat Paket Submisi CarbonShift
+# Pengemasan CarbonShift
 
-## Prasyarat developer
+## Prasyarat pengelola
 
 - Windows x64, .NET SDK 10, dan Git.
-- Python dengan `reportlab` dan `Pillow` untuk membangun PDF. Pasang dependensi dengan `python -m pip install reportlab Pillow`.
-- Screenshot panduan berada pada `docs/images/`. Perbarui jika UI berubah.
-- PostgreSQL hanya diperlukan jika mengaktifkan pengujian integrasi. Akun penguji integrasi setup membutuhkan CREATE DATABASE dan CREATE ROLE untuk fixture sementara. Pengguna aplikasi tidak perlu hak CREATE ROLE.
+- Python dengan ReportLab serta Pillow untuk membuat PDF.
+- Project Supabase yang sudah melewati aktivasi dan pengujian pada [Panduan Pengelola](PENGELOLA.md).
+- Project URL dan publishable key yang benar. Secret atau service-role key tidak boleh dipakai untuk build desktop.
 
-## Satu perintah
+## Membuat paket
 
-Jalankan perintah berikut di PowerShell dari root repo.
+Isi `Form/CarbonShift/supabase.public.json` dari template publik, lalu jalankan dari root repo.
 
 ```powershell
 ./scripts/package.ps1 -Version 1.0.0 -PythonExecutable python
 ```
 
-Jika `python` hanya merupakan alias Microsoft Store, isi `-PythonExecutable` dengan path interpreter Python yang nyata. Kebijakan eksekusi PowerShell mengikuti pengaturan komputer. Script tidak mengubah pengaturan keamanan Windows.
+Alternatifnya, isi parameter publik saat build.
 
-Script menghentikan proses jika pengujian, publish, validasi runtime, atau pembuatan PDF gagal. Script menjalankan pengujian default. Pengujian DB/API mengikuti flag opt-in pada README. Jika sudah memiliki `CARBONSHIFT_DB`, gunakan akun/database pengujian yang sesuai sebelum mengaktifkan flag DB.
-
-## Tahapan script
-
-1. Jalankan `dotnet test` dalam konfigurasi Release.
-2. Publish proyek aplikasi dengan profile `Submission` yang memakai `win-x64`, self-contained, `PublishSingleFile=false`, `PublishTrimmed=false`.
-3. Pastikan executable, runtime Windows Forms, `hostfxr.dll`, `coreclr.dll`, dan Npgsql tersedia. Runtime config harus bertipe self-contained.
-4. Pastikan sertifikat CA publik `prod-ca-2021.crt` tersedia. Tolak konfigurasi pribadi, dump database, private key, PDB, dan assembly test. `database.config` dan `supabase.config` tidak ikut publish.
-5. Salin panduan pengguna, panduan Supabase, konfigurasi contoh tanpa kredensial asli, dan gambar. Letakkan SQL lokal di `Database/Lokal-opsional`. Bangun PDF dari sumber panduan yang sama.
-6. Tambahkan instruksi mulai dan informasi versi/commit/status workspace. Workspace modified dicatat jika perubahan belum di-commit. File sumber yang sedang ada tetap dibangun.
-7. Buat ZIP dan checksum SHA-256 di `artifacts/`. Setiap build memakai staging baru agar file build sebelumnya tidak ikut.
-
-Berikut susunan output yang dihasilkan.
-
-```text
-artifacts/
-  CarbonShift-Submission-win-x64-1.0.0.zip
-  CarbonShift-Submission-win-x64-1.0.0.zip.sha256
-  build-<id>/CarbonShift-Submission-win-x64-1.0.0/
-    MULAI-DI-SINI.txt
-    Panduan-Pengguna.pdf
-    INFO-VERSI.txt
-    Aplikasi/
-      CarbonShift.exe
-      prod-ca-2021.crt
-      seluruh runtime/dependensi
-    Database/supabase.config.example
-    Database/Lokal-opsional/schema.psql, schema.sql, seed.sql, database.config.example
-    Dokumentasi/Panduan-Pengguna.md
-    Dokumentasi/Supabase.md
-    Dokumentasi/images/
+```powershell
+./scripts/package.ps1 -SupabaseUrl 'https://YOUR_PROJECT_REF.supabase.co/' -SupabasePublishableKey 'sb_publishable_YOUR_KEY' -PythonExecutable python
 ```
 
-PostgreSQL, konfigurasi pribadi, data pengguna, laporan Modul 10, dan seluruh source repo tidak dibundel. Pengumpul dapat menambahkan laporan Modul 10 sendiri sebelum mengunggah. Bila ZIP diedit manual, hitung ulang checksum.
+Ganti nilai contoh. Script menolak URL kosong, placeholder, dan key rahasia. Pengguna akhir tidak menjalankan perintah ini dan tidak mengisi konfigurasi project.
 
-Paket ini memakai Supabase yang sudah disiapkan pengelola. Pengguna memerlukan internet dan detail koneksi Session pooler yang dibagikan secara privat, bukan instalasi PostgreSQL lokal. Sertifikat CA publik boleh disertakan. Password DB, backup migrasi, dan konfigurasi aktif tidak boleh dimasukkan ke ZIP atau PDF.
+Script menjalankan pengujian default, publish self-contained Windows x64, pemeriksaan berkas, pembuatan PDF, ZIP, dan checksum. Flag pengujian integrasi harus dimatikan saat packaging. URL serta publishable key dimasukkan dalam metadata assembly. Tidak ada password DB atau private key dalam argumen build.
 
-Script menolak flag integrasi aktif saat packaging agar tidak menjalankan pengujian setup database pada Supabase. Dua pengujian akun dan penyimpanan remote telah diverifikasi terpisah. Jangan menjalankan seluruh suite setup DB di project Supabase.
+Susunan paket pengguna berikut.
+
+```text
+CarbonShift-Submission-win-x64-1.0.0/
+  MULAI-DI-SINI.txt
+  Panduan-Pengguna.pdf
+  INFO-VERSI.txt
+  Aplikasi/
+    CarbonShift.exe
+    CarbonShift.Domain.dll
+    CarbonShift.Contracts.dll
+    runtime dan dependensi aplikasi
+  Dokumentasi/
+    Panduan-Pengguna.md
+    images/
+```
+
+SQL, Npgsql, sertifikat PostgreSQL, template konfigurasi DB, dan panduan server tidak masuk paket pengguna. Materi pengelola tetap berada di repo. Backup dan konfigurasi privat berada di luar Git. Laporan testing Modul 10 kelompok ditambahkan terpisah bila dibutuhkan submisi.
+
+## Pemeriksaan sebelum distribusi
+
+1. Jalankan type check dan pengujian Edge Functions sesuai panduan pengelola.
+2. Pastikan migrasi hosted dan dua Edge Functions sudah aktif.
+3. Uji akun lama dan akun baru pada project hosted, termasuk pemisahan riwayat.
+4. Ekstrak ZIP ke folder baru. Halaman awal harus langsung menampilkan Masuk dan Daftar tanpa pengaturan database.
+5. Uji simpan, buka ulang aplikasi, baca riwayat, export CSV, serta logout.
+6. Pastikan paket memakai URL project yang benar dan tidak membawa kredensial DB atau service-role key.
+7. Render dan periksa seluruh halaman PDF. Panduan pengguna hanya memuat cara memakai aplikasi.
+8. Periksa checksum dan uji pada komputer Windows bersih sebelum submisi.
 
 ## PDF saja
 
@@ -63,14 +62,4 @@ python scripts/build_guide.py --source docs/PANDUAN_PENGGUNA.md --output output/
 pdftoppm -png output/pdf/Panduan-Pengguna.pdf tmp/pdfs/panduan
 ```
 
-Periksa seluruh halaman hasil render. Screenshot mode demo dan data uji diberi keterangan sebagai ilustrasi, tidak dianggap forecast live.
-
-## Checklist sebelum unggah
-
-- Ekstrak ZIP ke folder baru, buka folder `Aplikasi`, lalu jalankan `CarbonShift.exe`.
-- Pastikan dependensi dan sertifikat CA tetap berada di samping EXE. Periksa ZIP tidak membawa konfigurasi pribadi, password, atau dump migrasi.
-- Uji koneksi Session pooler dan penyimpanan pengaturan pada profil Windows. Pengguna baru perlu meminta detail koneksi secara privat.
-- Uji setup database lokal hanya pada DB sementara lokal. Jangan menjalankannya pada Supabase.
-- Daftar/login, ambil forecast, simpan, tutup, buka lagi, dan baca riwayat.
-- Sertakan laporan testing Modul 10 milik kelompok bila diminta dalam submisi.
-- Coba di Windows bersih tanpa .NET/Visual Studio. Pemeriksaan runtime dan pengujian pada laptop developer tidak menggantikan uji lingkungan bersih tersebut.
+Jangan menandai paket sebagai siap pakai sebelum konfigurasi publik, aktivasi project, dan pengujian hosted selesai. Build lokal yang belum dikonfigurasi hanya dipakai untuk pengembangan dan pemeriksaan tampilan.

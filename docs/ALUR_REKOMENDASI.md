@@ -1,3 +1,17 @@
+# Forecast dan Rekomendasi CarbonShift
+
+## Alur aktif setelah aktivasi Auth/RPC
+
+WinForms mengambil forecast tampilan dari Open-Meteo dan menyimpan cache perangkat. Saat Cari rekomendasi, Edge Function mengambil forecast terpercaya sendiri, menghitung kandidat, dan menyimpan snapshot server. Grafik hasil, komponen skor, dan penjelasan yang dikembalikan server menjadi hasil yang dilihat pengguna. Forecast pada halaman lain bisa memiliki waktu pengambilan berbeda.
+
+Tombol Simpan hanya mengirim ID snapshot ke RPC. RPC memeriksa pemilik dari auth.uid(), masa berlaku, serta waktu rekomendasi, lalu menyimpan slot terbaik dalam satu transaksi. Skor, penjelasan, dan user_id dari desktop tidak dipercaya. Hasil demo dihitung pada desktop dan tidak bisa disimpan.
+
+Engine TypeScript server mempertahankan rumus serta aturan waktu engine C# pada domain. Pengujian memeriksa bobot, seri, data hilang, indikator siang, pemetaan radiasi, dan WIB/WITA/WIT. Rincian deployment dan akses data ada di [Panduan Pengelola](PENGELOLA.md).
+
+## Catatan rancangan sebelumnya
+
+Bagian berikut mendokumentasikan perhitungan yang menjadi dasar engine. Referensi repository DB dan nama file pada rancangan sebelumnya merupakan alur historis koneksi desktop, bukan jalur akses database aplikasi saat ini.
+
 # Alur Forecast, Green Score, dan Rekomendasi CarbonShift
 
 Dokumen ini menjelaskan perilaku implementasi saat ini, dari pemilihan kota sampai hasil rekomendasi disimpan. Contoh angka di bawah adalah ilustrasi, bukan hasil forecast live.

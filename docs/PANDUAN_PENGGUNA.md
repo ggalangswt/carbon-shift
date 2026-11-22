@@ -2,134 +2,111 @@
 
 **Junior Project - Climate Action | Versi 1.0.0 | Windows x64**
 
-CarbonShift membantu memilih waktu aktivitas listrik berdasarkan prakiraan cuaca dan potensi surya. Pengguna dapat membuat akun, mencari rekomendasi, menyimpan jadwal, dan melihat riwayatnya sendiri.
+CarbonShift membantu memilih waktu aktivitas listrik berdasarkan prakiraan cuaca dan potensi surya. Kamu bisa membuat jadwal, membaca alasan rekomendasinya, lalu menyimpan dan membuka kembali riwayatnya.
 
-## 1. Sebelum menjalankan aplikasi
+## 1. Membuka aplikasi
 
-- Gunakan Windows 64-bit. Paket ini tidak ditujukan untuk macOS, Linux, atau Windows 32-bit.
-- Visual Studio, .NET SDK, dan .NET Runtime tidak perlu dipasang untuk memakai paket self-contained.
-- Database memakai PostgreSQL di Supabase. Kamu tidak perlu memasang PostgreSQL lokal.
-- Internet diperlukan untuk login, register, riwayat, pencarian kota, dan forecast terbaru. Cache forecast tidak menggantikan koneksi database.
+1. Ekstrak seluruh ZIP CarbonShift ke folder pilihanmu.
+2. Buka folder **Aplikasi**, lalu jalankan **CarbonShift.exe**.
+3. Pastikan komputer terhubung ke internet.
+4. Masukkan email dan password, lalu klik **Masuk**.
 
-### Siapkan koneksi dari pengelola
+![Halaman Masuk CarbonShift.](images/02-login.png)
 
-1. Minta host, port, nama database, username Session pooler, dan password database kepada pengelola secara privat.
-2. Pastikan pengelola sudah menyiapkan database CarbonShift di Supabase. Pengguna tidak perlu membuat tabel atau menjalankan SQL.
-3. Simpan password database untuk pengaturan koneksi. Saat masuk aplikasi nanti, gunakan akun CarbonShift sendiri.
-4. Paket publik tidak menyertakan password database. Akses ini ditujukan untuk demonstrasi kelompok dengan peserta terbatas.
+Jika belum punya akun, pilih **Belum punya akun? Daftar**. Riwayat yang sudah tersimpan tetap mengikuti akunmu.
 
-### Membuka paket
-
-1. Klik kanan ZIP submisi, lalu pilih **Extract All** ke folder yang dapat ditulis, misalnya Documents.
-2. Buka folder hasil ekstraksi, masuk ke folder **Aplikasi**, lalu jalankan **CarbonShift.exe**.
-3. Pertahankan seluruh isi folder **Aplikasi**, termasuk DLL, runtime, dan sertifikat **prod-ca-2021.crt**. Jangan memindahkan hanya EXE.
-4. Pada pemakaian pertama, ikuti Pengaturan database. Setelah konfigurasi berhasil, penggunaan berikutnya langsung menuju halaman Masuk.
-
-Pengaturan dan cache disimpan dalam profil Windows di `%LocalAppData%\CarbonShift`, bukan di dalam ZIP. Laporan testing Modul 10 milik kelompok disertakan terpisah oleh pengumpul.
+Pertahankan isi folder Aplikasi saat memindahkannya. Saat mendapat paket baru, ekstrak ke folder baru lalu jalankan aplikasinya.
 
 <!-- pagebreak -->
 
-## 2. Pengaturan database pertama kali
+## 2. Membuat akun
 
-Isi koneksi **Session pooler Supabase** dari pengelola, lalu pilih **Uji koneksi**. Tombol ini tidak mengubah database.
+1. Pilih **Belum punya akun? Daftar** pada halaman Masuk.
+2. Isi nama dan email.
+3. Buat password sepanjang 8-128 karakter, lalu ulangi pada kolom konfirmasi.
+4. Klik **Buat akun**. Setelah berhasil, kamu langsung masuk ke Dashboard.
 
-| Field | Contoh / keterangan |
-| --- | --- |
-| Host | Host Session pooler dari pengelola, berakhiran `.pooler.supabase.com` |
-| Port | Biasanya `5432`. Ikuti informasi dari pengelola |
-| Nama database | `postgres` untuk Supabase |
-| Username | Username pooler dari pengelola, biasanya `postgres.<project-ref>` |
-| Password | Password database dari pengelola, bukan password akun CarbonShift |
+![Contoh pengisian formulir Daftar.](images/03-register.png)
 
-![Pengaturan Supabase dengan contoh isian. Tidak memuat kredensial asli.](images/01-database.png)
+Gunakan email dan password tersebut saat masuk kembali. Huruf besar dan kecil pada email tidak dibedakan. Password harus sama persis, termasuk spasi yang sengaja dimasukkan.
 
-Klik **Siapkan dan simpan** setelah koneksi dan schema sesuai. Wizard menyimpan koneksi pada profil Windows. Supabase harus sudah berisi tabel CarbonShift, wizard tidak membuatnya.
-
-Koneksi Supabase memakai TLS dengan verifikasi sertifikat CA dan nama server.
-
-Ubah koneksi melalui **Pengaturan database** di halaman Masuk. Batal saat pengaturan ulang mempertahankan koneksi sebelumnya.
+Jika email sudah terdaftar, gunakan halaman Masuk. Untuk mengganti akun, pilih **Logout** di bagian bawah sidebar.
 
 <!-- pagebreak -->
 
-## 3. Membuat akun atau masuk
+## 3. Memilih lokasi
 
-Pilih **Belum punya akun? Daftar**, isi nama dan email, lalu masukkan password 8-128 karakter dan konfirmasinya. Klik **Buat akun** untuk langsung masuk Dashboard tanpa verifikasi email.
+1. Di Dashboard, ketik nama kota pada kolom **Lokasi prakiraan**.
+2. Klik **Cari kota** atau tekan Enter.
+3. Pilih kota dan provinsi yang sesuai pada daftar hasil.
+4. Tunggu sampai prakiraan cuaca tampil. Klik **Ambil ulang forecast** untuk memperbaruinya.
 
-![Mode Daftar dengan contoh isian.](images/03-register.png)
+![Dashboard setelah lokasi dipilih. Angka pada gambar merupakan contoh.](images/04-dashboard.png)
 
-Email tidak membedakan kapital. Password harus sama persis, termasuk spasi yang sengaja dimasukkan. Riwayat akun baru masih kosong.
+Lokasi terakhir diingat pada perangkat yang kamu gunakan. Saat memakai komputer lain, pilih lokasinya kembali.
 
-Untuk masuk kembali, gunakan email dan password CarbonShift yang dibuat saat daftar. Akun lama dari DB lokal tetap dapat dipakai setelah pengelola memigrasikannya. Kredensial PostgreSQL tidak dipakai pada form Masuk ini.
-
-Setelah Logout, aplikasi kembali ke mode Masuk dengan password kosong. Riwayat pada aplikasi mengikuti akun aktif. Akun dan riwayat dapat dibuka di komputer lain yang terhubung ke database Supabase yang sama. Lokasi terakhir dan cache tetap disimpan pada perangkat.
-
-<!-- pagebreak -->
-
-## 4. Pilih lokasi dan ambil forecast
-
-1. Di Dashboard, ketik nama kota Indonesia pada field **Lokasi prakiraan**.
-2. Klik **Cari kota** atau tekan Enter. Pilih kota/provinsi yang sesuai pada dropdown di field yang sama.
-3. Lokasi langsung diterapkan dan forecast diambil. Periksa sumber data dan waktu pengambilannya.
-4. Buka **Forecast** untuk melihat data per jam dan memilih tanggal hari ini, besok, atau lusa.
-
-![Pengaturan lokasi dan ringkasan jadwal. Gambar ini memakai data DEMO untuk ilustrasi.](images/04-dashboard.png)
-
-**Open-Meteo (live)** berarti data baru dari API. **Cache** adalah data tersimpan. **Cache cadangan** dipakai ketika API gagal dan umur/cakupannya masih sesuai. **DEMO** adalah data buatan yang tidak bisa disimpan sebagai jadwal.
-
-Pengaturan lokasi hanya tampil di Dashboard. Lokasi terakhir diingat per akun. Klik **Ambil ulang forecast** untuk memperbarui data atau keluar dari mode demo. Semua jam aktivitas mengikuti zona waktu kota yang berupa WIB, WITA, atau WIT.
+Grafik menunjukkan potensi surya per jam pada tanggal terpilih. Pilih **Buat jadwal** untuk menuju Scheduler.
 
 <!-- pagebreak -->
 
-## 5. Cari rekomendasi dan simpan jadwal
+## 4. Membaca prakiraan cuaca
 
-1. Buka **Scheduler**. Pilih preset atau ketik nama aktivitas sendiri.
-2. Pilih tanggal, estimasi total energi aktivitas (kWh), dan durasi 1-12 jam.
-3. Atur batas mulai dan selesai dalam satu hari. Jam selesai 24 berarti tengah malam berikutnya.
-4. Pilih metode skor, lalu klik **Cari rekomendasi**. Metode default memakai bobot surya 70%, awan 20%, dan siang 10%.
-5. Baca waktu terbaik, peringkat alternatif, dan penjelasan. Klik **Simpan ke riwayat** untuk menyimpan rekomendasi terbaik dari data nyata/cache.
+Buka **Forecast** melalui sidebar. Pilih hari ini, besok, atau lusa untuk melihat suhu, awan, radiasi, dan potensi surya per jam.
 
-![Hasil rekomendasi. Contoh ini menggunakan data DEMO, sehingga tombol Simpan tidak aktif.](images/05-scheduler.png)
+![Halaman Forecast dengan data contoh.](images/07-forecast.png)
 
-Green Score 0-100 menunjukkan kesesuaian waktu dengan potensi surya, bukan persentase listrik terbarukan atau pengurangan emisi aktual. Skor minimal 70 masuk kategori Sangat baik. Skor 40 hingga kurang dari 70 masuk kategori Cukup, dan skor di bawah 40 masuk kategori Rendah.
+Jam aktivitas mengikuti zona waktu kota yang dipilih. Periksa lokasi, tanggal, dan waktu pengambilan data sebelum membuat jadwal.
 
-Perubahan input atau forecast membatalkan hasil lama. Hitung ulang sebelum menyimpan. Waktu yang sudah lewat, forecast kedaluwarsa, dan data demo tidak dapat disimpan. Jika tidak ada kandidat, coba tanggal/rentang lain atau kurangi durasi.
+Keterangan **live** menunjukkan data yang baru diambil. **Cache** menunjukkan data tersimpan. **Cache cadangan** digunakan saat data terbaru belum dapat diambil dan data sebelumnya masih sesuai.
+
+Tombol **Coba data contoh** membantumu mencoba tampilan. Jadwal dari mode demo tidak dapat disimpan. Klik **Ambil ulang forecast** untuk kembali memakai prakiraan cuaca.
 
 <!-- pagebreak -->
 
-## 6. Riwayat, export, dan dashboard
+## 5. Membuat dan menyimpan jadwal
 
-Buka **Riwayat** setelah menyimpan. Pilih baris untuk membaca penjelasan. Data tetap tersimpan setelah aplikasi ditutup dan dibuka kembali. Tombol **Export CSV** mengekspor baris yang ditampilkan. **Hapus semua** meminta konfirmasi dan hanya menghapus riwayat akun aktif.
+1. Buka **Scheduler**. Pilih aktivitas yang tersedia atau ketik nama sendiri.
+2. Pilih tanggal pelaksanaan, estimasi total energi dalam kWh, dan durasi 1-12 jam.
+3. Tentukan jam mulai paling awal dan selesai paling lambat. Angka 24 berarti tengah malam berikutnya.
+4. Pilih metode Green Score, lalu klik **Cari rekomendasi**.
+5. Baca waktu terbaik, alternatif, dan penjelasannya. Klik **Simpan ke riwayat** untuk menyimpan rekomendasi terbaik.
 
-![Riwayat beserta evidence. Angka pada gambar adalah data uji ilustratif, bukan forecast live.](images/06-history.png)
+![Contoh hasil rekomendasi dan penjelasannya.](images/05-scheduler.png)
 
-Dashboard merangkum jumlah jadwal pada minggu berjalan (Senin-Minggu), rata-rata skor, dan jadwal mendatang. Angka tersebut menunjukkan jadwal yang disimpan, bukan bukti aktivitas sudah dilaksanakan atau energi benar-benar dikonsumsi.
+Green Score 0-100 menunjukkan kesesuaian waktu dengan potensi surya. Skor ini bukan persentase listrik terbarukan atau pengurangan emisi. Estimasi kWh menunjukkan kebutuhan energi aktivitas.
 
-Gunakan **Logout** di bawah sidebar untuk berganti akun. Untuk mengubah koneksi PostgreSQL, lakukan dari halaman Masuk setelah logout.
+Setelah mengubah input, cari rekomendasi lagi. Jika hasil sudah kedaluwarsa atau waktunya lewat, hitung ulang sebelum menyimpan. Riwayat menampilkan hasil yang sama dengan penjelasan rekomendasi dari layanan.
+
+<!-- pagebreak -->
+
+## 6. Riwayat dan dashboard
+
+Buka **Riwayat** untuk melihat jadwal tersimpan. Pilih baris untuk membaca penjelasannya. Data tetap tersedia setelah aplikasi ditutup dan dapat dibuka dari akun yang sama di komputer lain.
+
+![Contoh riwayat jadwal tersimpan.](images/06-history.png)
+
+**Export CSV** menyimpan baris yang sedang ditampilkan ke file pilihanmu. **Hapus semua** meminta konfirmasi sebelum menghapus riwayat akun aktif.
+
+Dashboard merangkum jumlah jadwal minggu berjalan, rata-rata Green Score, dan jadwal berikutnya. Angka ini merangkum jadwal tersimpan, bukan aktivitas yang sudah dilaksanakan.
+
+Gunakan **Logout** untuk keluar. Setelah aplikasi ditutup atau sesi berakhir, masuk kembali dengan akunmu.
 
 <!-- pagebreak -->
 
 ## 7. Jika ada kendala
 
-| Gejala | Langkah yang dilakukan |
+| Kendala | Langkah yang dapat dicoba |
 | --- | --- |
-| Database tidak terhubung | Periksa internet, status project Supabase, host, port, dan username Session pooler. Gunakan Uji koneksi. |
-| Password database ditolak | Isi password database dari pengelola, bukan password akun CarbonShift. |
-| Sertifikat ditolak | Pastikan prod-ca-2021.crt tetap ada di folder Aplikasi dan tanggal komputer benar. Minta pengelola memeriksa sertifikat. |
-| Hak akses atau schema tidak sesuai | Hubungi pengelola. Jangan menjalankan SQL lokal atau menghapus tabel Supabase. |
-| Email sudah terdaftar | Pilih mode Masuk atau gunakan email lain. |
-| Tidak ada slot cocok | Pilih besok/lusa, perluas rentang, atau kurangi durasi. Semua interval harus memiliki data lengkap. |
-| Forecast gagal | Periksa internet dan ambil ulang. Cache cadangan hanya tersedia jika pernah mengambil data yang masih sesuai. |
-| Simpan nonaktif | Cari ulang setelah mengubah input. Pastikan sumber bukan DEMO dan waktunya belum lewat. |
-| Konfigurasi lokal tidak tersimpan | Pastikan profil Windows dapat ditulis dan ruang penyimpanan tersedia. |
+| Aplikasi belum dapat terhubung | Periksa internet, tunggu sebentar, lalu coba lagi. Hubungi pengelola jika masih terjadi. |
+| Email atau password salah | Periksa email dan ketik ulang password. Perhatikan huruf besar, kecil, dan spasi pada password. |
+| Email sudah terdaftar | Gunakan halaman Masuk dengan akun yang sudah ada. |
+| Sesi berakhir | Masuk kembali. Jadwal yang sudah tersimpan tetap ada. |
+| Terlalu banyak percobaan | Tunggu beberapa menit sebelum mencoba lagi. |
+| Kota tidak ditemukan | Coba nama kota lain dan pilih provinsi yang sesuai. |
+| Prakiraan cuaca gagal dimuat | Periksa internet, lalu klik Ambil ulang forecast. |
+| Tidak ada rekomendasi | Perluas rentang waktu, kurangi durasi, atau pilih besok maupun lusa. |
+| Hasil rekomendasi kedaluwarsa | Cari rekomendasi lagi sebelum menyimpan. |
+| Belum jelas apakah jadwal tersimpan | Buka Riwayat dan pilih Muat ulang sebelum mencoba menyimpan lagi. |
+| Tombol Simpan tidak aktif | Pastikan hasil masih berlaku dan kamu sedang memakai data prakiraan, bukan mode demo. |
 
-### Konfigurasi lanjutan dan pembaruan paket
-
-Aplikasi membaca konfigurasi dari environment variable `CARBONSHIFT_DB`, konfigurasi wizard dalam `%LocalAppData%\CarbonShift\database.config`, lalu file lama di samping EXE. Jika CARBONSHIFT_DB aktif, wizard menampilkan field terkunci. Ubah/hapus variabel melalui Windows Environment Variables dan mulai ulang aplikasi untuk kembali ke konfigurasi wizard.
-
-File konfigurasi lokal memuat kredensial PostgreSQL. Jangan memasukkannya ke ZIP atau membagikannya. Saat menerima versi aplikasi baru, ekstrak ke folder baru. Konfigurasi profil Windows dan database tetap terpisah dari paket aplikasi.
-
-### Informasi untuk pengelola
-
-Detail penyiapan dan migrasi ada di **Dokumentasi/Supabase.md**. Contoh koneksi tanpa password asli ada di **Database/supabase.config.example**. SQL di **Database/Lokal-opsional** hanya untuk PostgreSQL lokal, bukan Supabase.
-
-Jangan membagikan password database atau konfigurasi pribadi bersama paket publik. Koneksi SQL langsung belum membatasi akses antar pengguna pada tingkat database. Untuk distribusi publik, siapkan backend API atau Supabase Auth beserta kebijakan RLS per pengguna.
+Gunakan menu yang tersedia di aplikasi untuk mengelola akun dan riwayatmu. Panduan ini memakai gambar dan data contoh untuk menjelaskan alur penggunaan.
