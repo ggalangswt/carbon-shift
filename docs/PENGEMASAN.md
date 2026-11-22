@@ -36,10 +36,12 @@ artifacts/
   CarbonShift-Submission-win-x64-1.0.0.zip
   CarbonShift-Submission-win-x64-1.0.0.zip.sha256
   build-<id>/CarbonShift-Submission-win-x64-1.0.0/
-    CarbonShift.exe dan seluruh runtime/dependensi
     MULAI-DI-SINI.txt
     Panduan-Pengguna.pdf
     INFO-VERSI.txt
+    Aplikasi/
+      CarbonShift.exe
+      seluruh runtime/dependensi
     Database/schema.psql, schema.sql, seed.sql, database.config.example
     Dokumentasi/Panduan-Pengguna.md
     Dokumentasi/images/
@@ -58,7 +60,7 @@ Periksa seluruh halaman hasil render. Screenshot mode demo dan data uji diberi k
 
 ## Checklist sebelum unggah
 
-- Ekstrak ZIP ke folder baru dan jalankan executable hasil ekstraksi.
+- Ekstrak ZIP ke folder baru, buka folder `Aplikasi`, lalu jalankan `CarbonShift.exe`.
 - Pastikan seluruh dependensi tetap berada di samping EXE dan tidak ada konfigurasi pribadi.
 - Uji setup baru dengan DB sementara. Periksa DB yang sudah sesuai tidak berubah dan schema parsial ditolak.
 - Daftar/login, ambil forecast, simpan, tutup, buka lagi, dan baca riwayat.

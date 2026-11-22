@@ -24,7 +24,7 @@ Green Score adalah **skor kesesuaian waktu dengan potensi surya**, bukan persent
 
 ## Menjalankan aplikasi
 
-Untuk memakai paket submisi, ekstrak seluruh ZIP, pasang PostgreSQL lokal jika belum ada, lalu jalankan `CarbonShift.exe`. Paket self-contained menyertakan .NET runtime. Wizard membantu menguji koneksi, membuat DB/tabel jika belum ada/kosong, dan menyimpan konfigurasi pada profil Windows. Lihat [Panduan Pengguna](docs/PANDUAN_PENGGUNA.md).
+Untuk memakai paket submisi, ekstrak seluruh ZIP, pasang PostgreSQL lokal jika belum ada, lalu buka folder `Aplikasi` dan jalankan `CarbonShift.exe`. Paket self-contained menyertakan .NET runtime. Wizard membantu menguji koneksi, membuat DB/tabel jika belum ada/kosong, dan menyimpan konfigurasi pada profil Windows. Lihat [Panduan Pengguna](docs/PANDUAN_PENGGUNA.md).
 
 ### Menjalankan dari source (developer)
 

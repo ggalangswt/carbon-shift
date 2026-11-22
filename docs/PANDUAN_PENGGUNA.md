@@ -22,8 +22,8 @@ CarbonShift membantu memilih waktu aktivitas listrik berdasarkan prakiraan cuaca
 ### Membuka paket
 
 1. Klik kanan ZIP submisi, lalu pilih **Extract All** ke folder yang dapat ditulis, misalnya Documents.
-2. Buka folder hasil ekstraksi dan jalankan **CarbonShift.exe**.
-3. Pertahankan seluruh DLL dan file runtime di samping executable. Jangan menjalankan aplikasi langsung dari tampilan isi ZIP atau memindahkan hanya file EXE.
+2. Buka folder hasil ekstraksi, masuk ke folder **Aplikasi**, lalu jalankan **CarbonShift.exe**.
+3. Pertahankan seluruh isi folder **Aplikasi**, termasuk DLL dan runtime di samping executable. Jangan menjalankan aplikasi langsung dari ZIP atau memindahkan hanya EXE.
 4. Pada pemakaian pertama, ikuti Pengaturan database. Setelah konfigurasi berhasil, penggunaan berikutnya langsung menuju halaman Masuk.
 
 Pengaturan dan cache disimpan dalam profil Windows di `%LocalAppData%\CarbonShift`, bukan di dalam ZIP. Laporan testing Modul 10 milik kelompok disertakan terpisah oleh pengumpul.
