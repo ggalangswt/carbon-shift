@@ -10,3 +10,64 @@
 
 **Anggota 2:** Farand Hafiz - 24/540618/TK/60027
 
+## MVP
+
+- Login PostgreSQL dengan password PBKDF2.
+- Pencarian kota Indonesia; lokasi terakhir disimpan per akun di perangkat.
+- Forecast per jam untuk hari ini, besok, dan lusa, mengikuti WIB/WITA/WIT.
+- Preset atau aktivitas custom, durasi 1–12 jam, rentang satu hari, dan estimasi total energi aktivitas (kWh).
+- Green Score 0–100, sepuluh alternatif teratas, dan penjelasan komponen perhitungan.
+- Simpan rekomendasi terbaik, riwayat lintas sesi, detail evidence, export CSV, dan hapus seluruh riwayat akun.
+- Dashboard jumlah jadwal minggu berjalan (Senin–Minggu), rata-rata skor, jadwal berikutnya, dan grafik surya.
+
+Green Score adalah **skor kesesuaian waktu dengan potensi surya**, bukan persentase listrik terbarukan, energi surya yang benar-benar dipakai, atau pengurangan emisi. Jadwal tersimpan belum berarti aktivitas sudah dilakukan.
+
+## Menjalankan aplikasi
+
+Penjelasan API, pengolahan forecast, rumus Green Score, contoh hitungan, dan penyimpanan hasil tersedia di [Alur Forecast, Green Score, dan Rekomendasi](docs/ALUR_REKOMENDASI.md).
+
+Butuh Windows, .NET SDK 10, dan PostgreSQL. Gunakan database kelompok yang sudah ada. Untuk instalasi database baru saja:
+
+```powershell
+psql -U postgres -h localhost -d postgres -f database/schema.psql
+psql -U postgres -h localhost -d carbonshift -f database/seed.sql
+```
+
+Salin `Form/CarbonShift/database.config.example` ke `Form/CarbonShift/database.config`, lalu isi kredensial lokal. Alternatif: atur environment variable `CARBONSHIFT_DB`. Konfigurasi lokal tidak di-commit. Skema lima tabel resmi tetap dipertahankan.
+
+```powershell
+dotnet run --project Form/CarbonShift/CarbonShift.csproj
+```
+
+Akun seed: `admin@carbonshift.com` / `12345`. Di Dashboard, ketik nama kota, klik **Cari kota** (atau Enter), lalu pilih hasil dari dropdown pada field yang sama. Lokasi langsung diterapkan dan forecast diambil. Setelah itu buka **Scheduler**. Kontrol lokasi hanya tampil di Dashboard. Rentang waktu menggunakan jam lokal kota terpilih, bukan jam komputer. Kandidat hari ini hanya mencakup jam yang belum lewat. Jam selesai 24 berarti tengah malam berikutnya.
+
+## Forecast dan penyimpanan lokal
+
+Data diambil dari [Open-Meteo](https://open-meteo.com/en/docs) menggunakan `HttpClient` dan `System.Text.Json`. Radiasi bertimestamp 12.00 merupakan rata-rata interval 11.00–12.00; adapter memetakannya ke interval tersebut. Aplikasi meminta empat hari API untuk memperoleh titik penutup terakhir, lalu menampilkan tiga hari kalender.
+
+Lokasi terakhir dan cache JSON disimpan di `%LocalAppData%\CarbonShift`. Cache normal berlaku 60 menit. Jika API gagal setelah satu retry (timeout 10 detik per percobaan), cache maksimal 6 jam dengan cakupan hari yang masih sesuai dapat dipakai dengan peringatan. Interval yang tidak lengkap diabaikan, bukan diisi nol.
+
+**Coba data contoh** adalah mode eksplisit untuk mencoba aplikasi tanpa forecast live. Hasil demo tidak bisa disimpan. Pilih **Ambil ulang forecast** untuk kembali ke data nyata. Pengubahan input atau forecast membatalkan rekomendasi lama.
+
+Evidence lengkap disimpan sebagai teks pada `recommendation.explanation`. Timestamp jadwal adalah waktu lokal kota; kolom `location` mencantumkan zona waktu. Data lama tetap ditampilkan; zona waktu/evidence yang belum tersedia tidak ditebak. Dashboard tidak memakai baris tanpa zona waktu untuk menentukan jadwal mendatang.
+
+## Build dan pengujian
+
+```powershell
+dotnet build Form/CarbonShift.slnx
+dotnet test Form/CarbonShift.slnx
+```
+
+Pengujian default mencakup engine, parsing API, cache, CSV, statistik, dan invalidasi input UI menggunakan data deterministik. Uji DB dan API nyata bersifat opt-in:
+
+```powershell
+$env:CARBONSHIFT_DB = (Get-Content -Raw Form/CarbonShift/database.config).Trim()
+$env:CARBONSHIFT_TEST_DB = '1'
+$env:CARBONSHIFT_TEST_LIVE = '1'
+dotnet test Form/CarbonShift.slnx
+```
+
+Uji integrasi membuat akun sementara, menguji simpan/baca tanggal besok-lusa dan pemisahan akun, menjalankan alur UI sampai membuka ulang aplikasi, lalu membersihkan data akun uji. Tidak ada migrasi atau perubahan data pengguna yang sudah ada. Screenshot uji UI ditaruh di `%TEMP%\CarbonShift-preview`.
+
+Belum termasuk: recurring schedule, notifikasi, registrasi, edit aktivitas, pemilihan alternatif untuk disimpan, IoT, dan ML.
+
