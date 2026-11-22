@@ -24,13 +24,15 @@ Green Score adalah **skor kesesuaian waktu dengan potensi surya**, bukan persent
 
 ## Menjalankan aplikasi
 
-Untuk memakai paket submisi, ekstrak seluruh ZIP, pasang PostgreSQL lokal jika belum ada, lalu buka folder `Aplikasi` dan jalankan `CarbonShift.exe`. Paket self-contained menyertakan .NET runtime. Wizard membantu menguji koneksi, membuat DB/tabel jika belum ada/kosong, dan menyimpan konfigurasi pada profil Windows. Lihat [Panduan Pengguna](docs/PANDUAN_PENGGUNA.md).
+Untuk memakai paket submisi, ekstrak seluruh ZIP, buka folder `Aplikasi`, lalu jalankan `CarbonShift.exe`. Paket self-contained menyertakan .NET runtime dan sertifikat CA Supabase. PostgreSQL lokal tidak perlu dipasang. Minta detail koneksi Session pooler secara privat kepada pengelola, lalu isi melalui Pengaturan database. Login, register, dan riwayat membutuhkan internet. Lihat [Panduan Pengguna](docs/PANDUAN_PENGGUNA.md).
+
+Paket publik tidak membawa password DB. Koneksi SQL langsung ditujukan untuk demonstrasi terbatas. Pemisahan riwayat dalam aplikasi belum menjadi pembatasan akses SQL antar pengguna. Distribusi publik memerlukan backend API atau Supabase Auth dan kebijakan RLS per pengguna.
 
 ### Menjalankan dari source (developer)
 
 Penjelasan API, pengolahan forecast, rumus Green Score, contoh hitungan, dan penyimpanan hasil tersedia di [Alur Forecast, Green Score, dan Rekomendasi](docs/ALUR_REKOMENDASI.md). Alur daftar, login, dan pemisahan data pengguna dijelaskan di [Akun dan Autentikasi](docs/AKUN_DAN_AUTENTIKASI.md).
 
-Butuh Windows, .NET SDK 10, dan PostgreSQL. Gunakan database kelompok yang sudah ada. Perintah berikut hanya untuk instalasi database baru.
+Butuh Windows dan .NET SDK 10. Untuk Supabase, gunakan database kelompok yang sudah disiapkan dan ikuti [panduan Supabase](docs/SUPABASE.md). PostgreSQL lokal hanya diperlukan bila memilih pengembangan lokal. Perintah berikut khusus instalasi database lokal baru.
 
 ```powershell
 psql -U postgres -h localhost -d postgres -f database/schema.psql
@@ -69,7 +71,7 @@ dotnet test Form/CarbonShift.slnx
 Pengujian default mencakup engine, parsing API, cache, CSV, statistik, dan invalidasi input UI menggunakan data deterministik. Aktifkan pengujian DB dan API nyata dengan perintah berikut.
 
 ```powershell
-$env:CARBONSHIFT_DB = (Get-Content -Raw Form/CarbonShift/database.config).Trim()
+$env:CARBONSHIFT_DB = (Get-Content -Raw 'C:/path/ke/database-test-lokal.config').Trim()
 $env:CARBONSHIFT_TEST_DB = '1'
 $env:CARBONSHIFT_TEST_LIVE = '1'
 dotnet test Form/CarbonShift.slnx
@@ -77,9 +79,13 @@ dotnet test Form/CarbonShift.slnx
 
 Uji integrasi membuat akun sementara, menguji simpan/baca tanggal besok-lusa dan pemisahan akun, menjalankan alur UI sampai membuka ulang aplikasi, lalu membersihkan data akun uji. Tidak ada migrasi atau perubahan data pengguna yang sudah ada. Screenshot uji UI ditaruh di `%TEMP%\CarbonShift-preview`.
 
+Ganti path contoh di atas dengan konfigurasi PostgreSQL lokal khusus pengujian. Jangan menjalankan seluruh suite integrasi pada Supabase. Pengujian setup database membuat serta menghapus database dan role sementara. Untuk Supabase, gunakan hanya pengujian akun serta penyimpanan yang dipilih secara eksplisit sesuai [panduan Supabase](docs/SUPABASE.md).
+
 Fitur yang belum tersedia meliputi recurring schedule, notifikasi, reset password, edit profil/aktivitas, pemilihan alternatif untuk disimpan, IoT, dan ML.
 
 ## Paket submisi
+
+Untuk memakai PostgreSQL remote, ikuti [panduan persiapan dan migrasi Supabase](docs/SUPABASE.md). Migrasi menjaga akun dan riwayat CarbonShift yang sudah ada.
 
 Publish profile `Submission` menargetkan Release, Windows x64, self-contained, tanpa trimming atau pemaksaan single-file. [Panduan pengemasan](docs/PENGEMASAN.md) menjelaskan script, prasyarat developer, struktur ZIP, dan batas pengujian rilis. Hasil ZIP/PDF di `artifacts/` dan `output/` tidak di-commit. Source panduan, screenshot, SQL, profile, dan script tersedia di repo.
 

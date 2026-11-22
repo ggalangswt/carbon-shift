@@ -8,22 +8,21 @@ CarbonShift membantu memilih waktu aktivitas listrik berdasarkan prakiraan cuaca
 
 - Gunakan Windows 64-bit. Paket ini tidak ditujukan untuk macOS, Linux, atau Windows 32-bit.
 - Visual Studio, .NET SDK, dan .NET Runtime tidak perlu dipasang untuk memakai paket self-contained.
-- PostgreSQL harus dipasang terpisah dan layanannya aktif. Paket tidak menyertakan server PostgreSQL.
-- Internet diperlukan untuk mencari kota dan mengambil forecast terbaru. Cache hanya membantu jika data yang sesuai pernah diambil.
+- Database memakai PostgreSQL di Supabase. Kamu tidak perlu memasang PostgreSQL lokal.
+- Internet diperlukan untuk login, register, riwayat, pencarian kota, dan forecast terbaru. Cache forecast tidak menggantikan koneksi database.
 
-### Memasang PostgreSQL jika belum tersedia
+### Siapkan koneksi dari pengelola
 
-1. Unduh installer Windows melalui [situs resmi PostgreSQL](https://www.postgresql.org/download/windows/). Pengujian lokal paket menggunakan PostgreSQL 18.
-2. Pasang komponen PostgreSQL Server. pgAdmin boleh digunakan untuk pengelolaan manual.
-3. Catat password untuk akun PostgreSQL `postgres`. Akun ini berbeda dari akun pengguna CarbonShift.
-4. Port default adalah `5432`. Jika diganti atau port sudah dipakai, gunakan port instalasi tersebut pada wizard.
-5. Selesaikan instalasi. Jika koneksi gagal, buka Windows Services dan pastikan layanan PostgreSQL berstatus Running.
+1. Minta host, port, nama database, username Session pooler, dan password database kepada pengelola secara privat.
+2. Pastikan pengelola sudah menyiapkan database CarbonShift di Supabase. Pengguna tidak perlu membuat tabel atau menjalankan SQL.
+3. Simpan password database untuk pengaturan koneksi. Saat masuk aplikasi nanti, gunakan akun CarbonShift sendiri.
+4. Paket publik tidak menyertakan password database. Akses ini ditujukan untuk demonstrasi kelompok dengan peserta terbatas.
 
 ### Membuka paket
 
 1. Klik kanan ZIP submisi, lalu pilih **Extract All** ke folder yang dapat ditulis, misalnya Documents.
 2. Buka folder hasil ekstraksi, masuk ke folder **Aplikasi**, lalu jalankan **CarbonShift.exe**.
-3. Pertahankan seluruh isi folder **Aplikasi**, termasuk DLL dan runtime di samping executable. Jangan menjalankan aplikasi langsung dari ZIP atau memindahkan hanya EXE.
+3. Pertahankan seluruh isi folder **Aplikasi**, termasuk DLL, runtime, dan sertifikat **prod-ca-2021.crt**. Jangan memindahkan hanya EXE.
 4. Pada pemakaian pertama, ikuti Pengaturan database. Setelah konfigurasi berhasil, penggunaan berikutnya langsung menuju halaman Masuk.
 
 Pengaturan dan cache disimpan dalam profil Windows di `%LocalAppData%\CarbonShift`, bukan di dalam ZIP. Laporan testing Modul 10 milik kelompok disertakan terpisah oleh pengumpul.
@@ -32,21 +31,23 @@ Pengaturan dan cache disimpan dalam profil Windows di `%LocalAppData%\CarbonShif
 
 ## 2. Pengaturan database pertama kali
 
-Isi koneksi PostgreSQL, lalu pilih **Uji koneksi**. Tombol ini tidak mengubah database.
+Isi koneksi **Session pooler Supabase** dari pengelola, lalu pilih **Uji koneksi**. Tombol ini tidak mengubah database.
 
 | Field | Contoh / keterangan |
 | --- | --- |
-| Host | `localhost` untuk PostgreSQL pada laptop yang sama |
-| Port | `5432`, atau port yang dipilih saat instalasi |
-| Nama database | `carbonshift`. Jangan memakai `postgres` atau database template |
-| Username | `postgres`, atau akun PostgreSQL yang diberikan pengelola |
-| Password | Password PostgreSQL dari proses instalasi |
+| Host | Host Session pooler dari pengelola, berakhiran `.pooler.supabase.com` |
+| Port | Biasanya `5432`. Ikuti informasi dari pengelola |
+| Nama database | `postgres` untuk Supabase |
+| Username | Username pooler dari pengelola, biasanya `postgres.<project-ref>` |
+| Password | Password database dari pengelola, bukan password akun CarbonShift |
 
-![Wizard database. Password disamarkan.](images/01-database.png)
+![Pengaturan Supabase dengan contoh isian. Tidak memuat kredensial asli.](images/01-database.png)
 
-Klik **Siapkan dan simpan** setelah isian benar. Database baru memerlukan hak CREATEDB. Database kosong akan diisi lima tabel dan akun contoh. Database CarbonShift yang sudah sesuai langsung dipakai. Data lama tidak dihapus. Schema parsial/berbeda ditolak untuk mencegah perubahan yang tidak diinginkan.
+Klik **Siapkan dan simpan** setelah koneksi dan schema sesuai. Wizard menyimpan koneksi pada profil Windows. Supabase harus sudah berisi tabel CarbonShift, wizard tidak membuatnya.
 
-Jika konfigurasi perlu diganti, buka **Pengaturan database** di halaman Masuk. Batal saat pengaturan ulang mempertahankan koneksi sebelumnya. Batal pada setup pertama menutup aplikasi.
+Koneksi Supabase memakai TLS dengan verifikasi sertifikat CA dan nama server.
+
+Ubah koneksi melalui **Pengaturan database** di halaman Masuk. Batal saat pengaturan ulang mempertahankan koneksi sebelumnya.
 
 <!-- pagebreak -->
 
@@ -58,9 +59,9 @@ Pilih **Belum punya akun? Daftar**, isi nama dan email, lalu masukkan password 8
 
 Email tidak membedakan kapital. Password harus sama persis, termasuk spasi yang sengaja dimasukkan. Riwayat akun baru masih kosong.
 
-Untuk masuk kembali, gunakan mode **Masuk**. Akun contoh pada database yang baru disiapkan adalah **admin@carbonshift.com** dengan password **12345**. Database lama belum tentu memiliki akun contoh. Pengguna tetap dapat mendaftar sendiri. Kredensial PostgreSQL tidak dipakai pada form Masuk ini.
+Untuk masuk kembali, gunakan email dan password CarbonShift yang dibuat saat daftar. Akun lama dari DB lokal tetap dapat dipakai setelah pengelola memigrasikannya. Kredensial PostgreSQL tidak dipakai pada form Masuk ini.
 
-Setelah Logout, aplikasi kembali ke mode Masuk dengan password kosong. Setiap akun memiliki riwayat terpisah.
+Setelah Logout, aplikasi kembali ke mode Masuk dengan password kosong. Riwayat pada aplikasi mengikuti akun aktif. Akun dan riwayat dapat dibuka di komputer lain yang terhubung ke database Supabase yang sama. Lokasi terakhir dan cache tetap disimpan pada perangkat.
 
 <!-- pagebreak -->
 
@@ -111,10 +112,10 @@ Gunakan **Logout** di bawah sidebar untuk berganti akun. Untuk mengubah koneksi 
 
 | Gejala | Langkah yang dilakukan |
 | --- | --- |
-| Tidak terhubung ke PostgreSQL | Pastikan server terpasang, layanan Running, dan host/port sesuai. Gunakan Uji koneksi. |
-| Password PostgreSQL ditolak | Isi password PostgreSQL dari instalasi, bukan password akun CarbonShift. |
-| Hak akses kurang | Gunakan akun dengan CREATEDB untuk DB baru dan CREATE pada schema public untuk tabel baru. Hubungi pengelola jika perlu. |
-| Schema tidak sesuai | Jangan menghapus DB lama. Gunakan nama database baru atau minta pengelola memeriksa schema. |
+| Database tidak terhubung | Periksa internet, status project Supabase, host, port, dan username Session pooler. Gunakan Uji koneksi. |
+| Password database ditolak | Isi password database dari pengelola, bukan password akun CarbonShift. |
+| Sertifikat ditolak | Pastikan prod-ca-2021.crt tetap ada di folder Aplikasi dan tanggal komputer benar. Minta pengelola memeriksa sertifikat. |
+| Hak akses atau schema tidak sesuai | Hubungi pengelola. Jangan menjalankan SQL lokal atau menghapus tabel Supabase. |
 | Email sudah terdaftar | Pilih mode Masuk atau gunakan email lain. |
 | Tidak ada slot cocok | Pilih besok/lusa, perluas rentang, atau kurangi durasi. Semua interval harus memiliki data lengkap. |
 | Forecast gagal | Periksa internet dan ambil ulang. Cache cadangan hanya tersedia jika pernah mengambil data yang masih sesuai. |
@@ -127,13 +128,8 @@ Aplikasi membaca konfigurasi dari environment variable `CARBONSHIFT_DB`, konfigu
 
 File konfigurasi lokal memuat kredensial PostgreSQL. Jangan memasukkannya ke ZIP atau membagikannya. Saat menerima versi aplikasi baru, ekstrak ke folder baru. Konfigurasi profil Windows dan database tetap terpisah dari paket aplikasi.
 
-### Setup SQL manual (opsional)
+### Informasi untuk pengelola
 
-Wizard tidak memerlukan psql atau pgAdmin. Jika pengelola memilih setup manual untuk database baru, jalankan perintah berikut dari folder Database.
+Detail penyiapan dan migrasi ada di **Dokumentasi/Supabase.md**. Contoh koneksi tanpa password asli ada di **Database/supabase.config.example**. SQL di **Database/Lokal-opsional** hanya untuk PostgreSQL lokal, bukan Supabase.
 
-```text
-psql -U postgres -h localhost -d postgres -f schema.psql
-psql -U postgres -h localhost -d carbonshift -f seed.sql
-```
-
-Script schema manual membuat database baru bernama carbonshift dan akan gagal jika database itu sudah ada. Script ini tidak melakukan reset. Untuk database lama yang sesuai, cukup pakai wizard. Nama/tipe tabel tetap mengikuti rancangan resmi kelompok.
+Jangan membagikan password database atau konfigurasi pribadi bersama paket publik. Koneksi SQL langsung belum membatasi akses antar pengguna pada tingkat database. Untuk distribusi publik, siapkan backend API atau Supabase Auth beserta kebijakan RLS per pengguna.
