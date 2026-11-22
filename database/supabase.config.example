@@ -1,0 +1,1 @@
+Host=YOUR_SESSION_POOLER_HOST.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.YOUR_PROJECT_REF;Password=YOUR_DATABASE_PASSWORD;SSL Mode=VerifyFull;Timeout=15;Command Timeout=15
