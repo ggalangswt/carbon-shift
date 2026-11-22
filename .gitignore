@@ -8,3 +8,6 @@
 /Form/CarbonShift/CarbonShift.csproj.user
 /Form/CarbonShift/database.config
 /.vs
+**/bin/
+**/obj/
+**/TestResults/
