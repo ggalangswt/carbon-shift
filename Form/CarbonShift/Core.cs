@@ -180,16 +180,45 @@ public sealed class AppSession(UserAccount user)
     }
 }
 
+public sealed class AuthValidationException(string message, string field) : ArgumentException(message)
+{
+    public string Field { get; } = field;
+}
+
 public static class AuthService
 {
-    public static async Task<UserAccount> LoginAsync(string email, string password)
+    private static string ValidateEmail(string email)
+    {
+        email = email.Trim().ToLowerInvariant();
+        if (email.Length is < 1 or > 100 || !Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            throw new AuthValidationException("Isi email yang valid, maksimal 100 karakter.", "email");
+        return email;
+    }
+
+    public static async Task<UserAccount> RegisterAsync(string name, string email, string password,
+        string confirmation, CancellationToken cancellationToken = default)
+    {
+        name = name.Trim();
+        if (name.Length is < 1 or > 100)
+            throw new AuthValidationException("Nama wajib diisi, maksimal 100 karakter.", "name");
+        email = ValidateEmail(email);
+        if (string.IsNullOrWhiteSpace(password) || password.Length is < 8 or > 128)
+            throw new AuthValidationException("Password harus 8–128 karakter dan tidak boleh hanya spasi.", "password");
+        if (password != confirmation)
+            throw new AuthValidationException("Konfirmasi password belum sama.", "confirmation");
+        if (await UserRepository.FindByEmailAsync(email, cancellationToken) != null)
+            throw new AuthValidationException("Email sudah terdaftar. Silakan masuk.", "email");
+        string hash = await Task.Run(() => PasswordHasher.Hash(password), cancellationToken);
+        return await UserRepository.CreateAsync(name, email, hash, cancellationToken);
+    }
+
+    public static async Task<UserAccount> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Email dan password wajib diisi.");
-        if (!Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-            throw new ArgumentException("Format email tidak valid.");
-        var user = await UserRepository.FindByEmailAsync(email);
-        if (user == null || !await Task.Run(() => PasswordHasher.Verify(password, user.PasswordHash)))
+        email = ValidateEmail(email);
+        var user = await UserRepository.FindByEmailAsync(email, cancellationToken);
+        if (user == null || !await Task.Run(() => PasswordHasher.Verify(password, user.PasswordHash), cancellationToken))
             throw new ArgumentException("Email atau password salah.");
         return user;
     }

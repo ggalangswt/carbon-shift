@@ -1,159 +1,139 @@
-﻿using System;
-using System.Drawing;
-using System.Windows.Forms;
+namespace CarbonShift;
 
-namespace CarbonShift
+public sealed class FormLogin : Form
 {
-    public class FormLogin : Form
+    private readonly TextBox tbName = new() { MaxLength = 100 };
+    private readonly TextBox tbEmail = new() { MaxLength = 100 };
+    private readonly TextBox tbPassword = new() { UseSystemPasswordChar = true };
+    private readonly TextBox tbConfirmation = new() { UseSystemPasswordChar = true, MaxLength = 128 };
+    private readonly CheckBox chkShow = new() { Text = "Tampilkan password", AutoSize = true };
+    private readonly Label lblError = UiHelper.Label("");
+    private readonly Label title = UiHelper.Label("Masuk", true);
+    private readonly Label hint = UiHelper.Label("Akun contoh: admin@carbonshift.com / 12345");
+    private readonly Button btnSubmit;
+    private readonly LinkLabel switchMode = new() { AutoSize = true, LinkColor = UiHelper.Hijau, Margin = new Padding(4, 12, 4, 4) };
+    private readonly TableLayoutPanel nameField, confirmationField;
+    private readonly CancellationTokenSource lifetime = new();
+    private bool registering, busy, resourcesDisposed;
+
+    public FormLogin()
     {
-        private TextBox tbEmail;
-        private TextBox tbPassword;
-        private CheckBox chkShow;
-        private Label lblError;
-        private Button btnLogin;
-        private Button btnClose;
-
-        public FormLogin()
+        Text = "CarbonShift - Masuk"; Font = new Font("Segoe UI", 10);
+        StartPosition = FormStartPosition.CenterScreen; AutoScaleMode = AutoScaleMode.Dpi;
+        BackColor = UiHelper.Surface; MinimumSize = new Size(740, 500); ClientSize = new Size(800, 500);
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
+        root.ColumnStyles.Add(new(SizeType.Absolute, 260)); root.ColumnStyles.Add(new(SizeType.Percent, 100));
+        var branding = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, BackColor = UiHelper.Hijau, Padding = new Padding(24, 48, 24, 24) };
+        var brand = UiHelper.Label("CarbonShift", true); brand.ForeColor = Color.White;
+        var tagline = UiHelper.Label("Jadwalkan aktivitas listrik sesuai potensi energi surya.");
+        tagline.ForeColor = Color.Honeydew; tagline.MaximumSize = new Size(200, 0);
+        branding.Controls.Add(brand); branding.Controls.Add(tagline); root.Controls.Add(branding, 0, 0);
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(24) };
+        var fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1 };
+        fields.ColumnStyles.Add(new(SizeType.Percent, 100));
+        void Add(Control control)
         {
-            Text = "CarbonShift - Login";
-            ClientSize = new Size(700, 400);
-            StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
-            BackColor = Color.White;
-            Font = new Font("Segoe UI", 10);
+            fields.RowStyles.Add(new(SizeType.AutoSize));
+            fields.Controls.Add(control, 0, fields.RowCount++);
+        }
+        TableLayoutPanel Field(string label, TextBox input)
+        {
+            var group = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Margin = new Padding(0, 0, 0, 6) };
+            group.ColumnStyles.Add(new(SizeType.Percent, 100));
+            group.RowStyles.Add(new(SizeType.AutoSize)); group.RowStyles.Add(new(SizeType.AutoSize));
+            group.Controls.Add(UiHelper.Label(label), 0, 0); input.Dock = DockStyle.Top; group.Controls.Add(input, 0, 1);
+            Add(group); return group;
+        }
+        Add(title);
+        nameField = Field("Nama", tbName);
+        Field("Email", tbEmail);
+        Field("Password", tbPassword);
+        confirmationField = Field("Konfirmasi password", tbConfirmation);
+        chkShow.Margin = new Padding(4, 8, 4, 4);
+        chkShow.CheckedChanged += (_, _) => tbPassword.UseSystemPasswordChar = tbConfirmation.UseSystemPasswordChar = !chkShow.Checked;
+        Add(chkShow);
+        lblError.ForeColor = Color.Firebrick; lblError.MaximumSize = new Size(410, 0); Add(lblError);
+        btnSubmit = UiHelper.Button("Masuk", async (_, _) => await SubmitAsync(), true);
+        btnSubmit.Dock = DockStyle.Top; Add(btnSubmit);
+        switchMode.LinkClicked += (_, _) => { if (!busy) SetMode(!registering); };
+        Add(switchMode);
+        hint.Font = new Font(Font.FontFamily, 8); hint.ForeColor = Color.DimGray; Add(hint);
+        scroll.Controls.Add(fields); root.Controls.Add(scroll, 1, 0); Controls.Add(root);
+        AcceptButton = btnSubmit;
+        FormClosing += (_, _) => lifetime.Cancel();
+        SetMode(false);
+    }
 
-            // ---------- Panel kiri (branding) ----------
-            Panel pnlLeft = new Panel();
-            pnlLeft.Dock = DockStyle.Left;
-            pnlLeft.Width = 280;
-            pnlLeft.BackColor = Color.FromArgb(27, 94, 32);
+    private void SetMode(bool register)
+    {
+        registering = register; Text = register ? "CarbonShift - Daftar" : "CarbonShift - Masuk";
+        title.Text = register ? "Buat akun" : "Masuk";
+        nameField.Visible = confirmationField.Visible = register;
+        hint.Visible = !register; tbPassword.MaxLength = register ? 128 : 32767;
+        btnSubmit.Text = register ? "Buat akun" : "Masuk";
+        switchMode.Text = register ? "Sudah punya akun? Masuk" : "Belum punya akun? Daftar";
+        tbPassword.Clear(); tbConfirmation.Clear(); chkShow.Checked = false; lblError.Text = "";
+        ClientSize = new Size(ClientSize.Width, register ? 650 : 500);
+        if (register) tbName.Focus(); else tbEmail.Focus();
+    }
 
-            Label lblBrand = new Label();
-            lblBrand.Text = "CarbonShift";
-            lblBrand.ForeColor = Color.White;
-            lblBrand.Font = new Font("Segoe UI", 22, FontStyle.Bold);
-            lblBrand.AutoSize = true;
-            lblBrand.Location = new Point(24, 130);
-
-            Label lblTag = new Label();
-            lblTag.Text = "Jadwalkan penggunaan listrik\ndi waktu paling hijau.";
-            lblTag.ForeColor = Color.Honeydew;
-            lblTag.AutoSize = true;
-            lblTag.Location = new Point(28, 185);
-
-            pnlLeft.Controls.Add(lblBrand);
-            pnlLeft.Controls.Add(lblTag);
-
-            // ---------- Form kanan ----------
-            Label lblHeader = new Label();
-            lblHeader.Text = "Masuk";
-            lblHeader.Font = new Font("Segoe UI", 18, FontStyle.Bold);
-            lblHeader.ForeColor = Color.FromArgb(27, 94, 32);
-            lblHeader.AutoSize = true;
-            lblHeader.Location = new Point(330, 50);
-
-            Label lblEmail = new Label();
-            lblEmail.Text = "Email";
-            lblEmail.AutoSize = true;
-            lblEmail.Location = new Point(330, 105);
-
-            tbEmail = new TextBox();
-            tbEmail.Location = new Point(330, 130);
-            tbEmail.Width = 320;
-
-            Label lblPassword = new Label();
-            lblPassword.Text = "Password";
-            lblPassword.AutoSize = true;
-            lblPassword.Location = new Point(330, 170);
-
-            tbPassword = new TextBox();
-            tbPassword.Location = new Point(330, 195);
-            tbPassword.Width = 320;
-            tbPassword.UseSystemPasswordChar = true;
-
-            chkShow = new CheckBox();
-            chkShow.Text = "Tampilkan password";
-            chkShow.AutoSize = true;
-            chkShow.Location = new Point(330, 230);
-            chkShow.CheckedChanged += delegate { tbPassword.UseSystemPasswordChar = !chkShow.Checked; };
-
-            lblError = new Label();
+    private async Task SubmitAsync()
+    {
+        if (busy) return;
+        busy = true; SetBusy(true); lblError.ForeColor = UiHelper.Hijau;
+        lblError.Text = registering ? "Membuat akun..." : "Memeriksa akun...";
+        try
+        {
+            var user = registering
+                ? await AuthService.RegisterAsync(tbName.Text, tbEmail.Text, tbPassword.Text, tbConfirmation.Text, lifetime.Token)
+                : await AuthService.LoginAsync(tbEmail.Text, tbPassword.Text, lifetime.Token);
+            if (IsDisposed) return;
+            tbEmail.Text = user.Email; tbPassword.Clear(); tbConfirmation.Clear(); lblError.Text = "";
+            using var dashboard = new FormDashboard(user);
+            Hide();
+            dashboard.ShowDialog(this);
+            if (IsDisposed) return;
+            SetBusy(false);
+            SetMode(false);
+            Show(); tbPassword.Focus();
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (IsDisposed) return;
+            SetBusy(false);
             lblError.ForeColor = Color.Firebrick;
-            lblError.AutoSize = true;
-            lblError.Location = new Point(330, 262);
-
-            btnLogin = new Button();
-            btnLogin.Text = "Login";
-            btnLogin.Location = new Point(330, 295);
-            btnLogin.Size = new Size(150, 38);
-            btnLogin.BackColor = Color.ForestGreen;
-            btnLogin.ForeColor = Color.White;
-            btnLogin.FlatStyle = FlatStyle.Flat;
-            btnLogin.Click += btnLogin_Click;
-
-            btnClose = new Button();
-            btnClose.Text = "Close";
-            btnClose.Location = new Point(495, 295);
-            btnClose.Size = new Size(155, 38);
-            btnClose.Click += btnClose_Click;
-
-            Label lblHint = new Label();
-            lblHint.Text = "Demo: admin@carbonshift.com / 12345";
-            lblHint.ForeColor = Color.Gray;
-            lblHint.Font = new Font("Segoe UI", 8);
-            lblHint.AutoSize = true;
-            lblHint.Location = new Point(330, 350);
-
-            Controls.Add(pnlLeft);
-            Controls.Add(lblHeader);
-            Controls.Add(lblEmail);
-            Controls.Add(tbEmail);
-            Controls.Add(lblPassword);
-            Controls.Add(tbPassword);
-            Controls.Add(chkShow);
-            Controls.Add(lblError);
-            Controls.Add(btnLogin);
-            Controls.Add(btnClose);
-            Controls.Add(lblHint);
-
-            AcceptButton = btnLogin;   // Enter = Login
-            CancelButton = btnClose;   // Esc = Close
-        }
-
-        private async void btnLogin_Click(object? sender, EventArgs e)
-        {
-            btnLogin.Enabled = false;
-            lblError.Text = "Memeriksa akun...";
-            try
+            lblError.Text = ex is ArgumentException ? ex.Message :
+                registering ? "Akun belum dapat dibuat. Periksa koneksi database dan coba lagi. Jika email sudah terdaftar, gunakan Masuk." :
+                "Tidak dapat masuk. Periksa koneksi dan konfigurasi database.";
+            if (ex is AuthValidationException validation)
             {
-                var user = await AuthService.LoginAsync(tbEmail.Text.Trim(), tbPassword.Text);
-                if (IsDisposed) return;
-                lblError.Text = "";
-                using FormDashboard dashboard = new FormDashboard(user);
-                this.Hide();
-                dashboard.ShowDialog();   // tunggu sampai dashboard ditutup
-                tbPassword.Clear();
-                this.Show();              // kembali ke login
-            }
-            catch (Exception ex)
-            {
-                if (IsDisposed) return;
-                string pesan = ex is ArgumentException ? ex.Message : "Tidak dapat masuk. Periksa koneksi dan konfigurasi database.";
-                lblError.Text = pesan.Length > 45 ? pesan.Substring(0, 42) + "..." : pesan;
-                if (pesan.Length > 45)
+                Control field = validation.Field switch
                 {
-                    MessageBox.Show(pesan, "Login Gagal", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                tbPassword.Clear();
-                tbPassword.Focus();
+                    "name" => tbName, "email" => tbEmail, "confirmation" => tbConfirmation, _ => tbPassword
+                };
+                field.Focus();
             }
-            finally { if (!IsDisposed) btnLogin.Enabled = true; }
+            else tbPassword.Focus();
         }
-
-        private void btnClose_Click(object? sender, EventArgs e)
+        finally
         {
-            this.Close();
+            busy = false;
+            if (!IsDisposed) SetBusy(false);
         }
+    }
+
+    private void SetBusy(bool value)
+    {
+        btnSubmit.Enabled = switchMode.Enabled = !value;
+        tbName.Enabled = tbEmail.Enabled = tbPassword.Enabled = tbConfirmation.Enabled = chkShow.Enabled = !value;
+    }
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && !resourcesDisposed)
+        {
+            resourcesDisposed = true; lifetime.Cancel(); lifetime.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }

@@ -57,10 +57,33 @@ public static class UserRepository
     {
         await using var conn = await Database.OpenConnectionAsync(ct);
         await using var cmd = new NpgsqlCommand(
-            "SELECT user_id, name, email, password_hash FROM \"user\" WHERE email = @email", conn);
-        cmd.Parameters.AddWithValue("email", email);
+            "SELECT user_id, name, email, password_hash FROM \"user\" WHERE lower(btrim(email)) = lower(@email) ORDER BY user_id LIMIT 2", conn);
+        cmd.Parameters.AddWithValue("email", email.Trim());
         await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? new(reader.GetInt32(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)) : null;
+        if (!await reader.ReadAsync(ct)) return null;
+        var user = new UserAccount(reader.GetInt32(0), reader.GetString(1), reader.GetString(2), reader.GetString(3));
+        if (await reader.ReadAsync(ct)) throw new InvalidOperationException("Email akun tidak unik tanpa membedakan kapital. Hubungi pengelola database.");
+        return user;
+    }
+
+    public static async Task<UserAccount> CreateAsync(string name, string email, string passwordHash, CancellationToken ct = default)
+    {
+        await using var conn = await Database.OpenConnectionAsync(ct);
+        await using var cmd = new NpgsqlCommand(
+            "INSERT INTO \"user\" (name,email,password_hash) VALUES (@name,@email,@hash) RETURNING user_id,name,email,password_hash", conn);
+        cmd.Parameters.AddWithValue("name", name.Trim());
+        cmd.Parameters.AddWithValue("email", email.Trim().ToLowerInvariant());
+        cmd.Parameters.AddWithValue("hash", passwordHash);
+        try
+        {
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            await reader.ReadAsync(ct);
+            return new(reader.GetInt32(0), reader.GetString(1), reader.GetString(2), reader.GetString(3));
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation && ex.ConstraintName == "user_email_key")
+        {
+            throw new AuthValidationException("Email sudah terdaftar. Silakan masuk.", "email");
+        }
     }
 }
 
