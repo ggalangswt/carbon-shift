@@ -22,6 +22,7 @@ public class RegistrationUiTests
             {
                 using var form = new FormLogin { StartPosition = FormStartPosition.Manual, Location = new(-30000, -30000) };
                 form.Show();
+                await WaitFor(() => Field<Button>(form, "btnSubmit").Enabled);
                 Switch(form);
                 Assert.True(Field<TableLayoutPanel>(form, "nameField").Visible);
                 Field<TextBox>(form, "tbName").Text = "Pengguna Baru";
