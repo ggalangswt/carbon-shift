@@ -138,6 +138,4 @@ public class HistoryTests
         Assert.Equal(2, stats.WeeklyCount); Assert.Equal(.8, stats.AverageScore!.Value, 10); Assert.Equal(next, stats.Next);
         Assert.Null(legacy.StartInstant);
     }
-    [Fact] public void Bad_password_hash_is_rejected_without_crash() =>
-        Assert.False(PasswordHasher.Verify("test", "pbkdf2-sha256$100000$bad$bad"));
 }

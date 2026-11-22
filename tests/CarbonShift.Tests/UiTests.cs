@@ -23,8 +23,8 @@ public class UiTests
         OnSta(() =>
         {
             var now = DateTimeOffset.UtcNow;
-            var session = new AppSession(new(1, "Pengujian", "", ""));
-            session.SetLocation(Fixtures.Jogja); session.SetForecast(Fixtures.Forecast(now: now));
+            var session = new AppSession(new(1, "Pengujian", ""), new TestAppClient());
+            session.SetLocation(Fixtures.Jogja); session.SetForecast(Fixtures.Forecast(now: now)); session.ForecastId = Guid.NewGuid();
             using var form = new Form { ClientSize = new(930, 650), StartPosition = FormStartPosition.Manual, Location = new(-30000, -30000) };
             var page = new PageScheduler(session, () => { });
             form.Controls.Add(page); form.Show(); page.RefreshAsync().GetAwaiter().GetResult();
@@ -38,7 +38,7 @@ public class UiTests
             find.PerformClick(); Assert.True(save.Enabled);
             Field<NumericUpDown>(page, "energy").Value = .3m; Assert.False(save.Enabled);
             find.PerformClick(); Assert.True(save.Enabled);
-            session.SetForecast(Fixtures.Forecast(now: now)); Assert.False(save.Enabled);
+            session.SetForecast(Fixtures.Forecast(now: now)); session.ForecastId = Guid.NewGuid(); Assert.False(save.Enabled);
             session.SetForecast(WeatherService.Demo(Fixtures.Jogja, now));
             find.PerformClick(); Assert.False(save.Enabled);
             Assert.Contains("DEMO", Field<TextBox>(page, "explanation").Text);
@@ -52,9 +52,9 @@ public class UiTests
     {
         OnSta(() =>
         {
-            var session = new AppSession(new(1, "Pengujian", "", ""));
+            var session = new AppSession(new(1, "Pengujian", ""), new TestAppClient());
             var now = DateTimeOffset.UtcNow;
-            session.SetLocation(Fixtures.Jogja); session.SetForecast(Fixtures.Forecast(now: now));
+            session.SetLocation(Fixtures.Jogja); session.SetForecast(Fixtures.Forecast(now: now)); session.ForecastId = Guid.NewGuid();
             using var form = new Form { ClientSize = new(width, height), StartPosition = FormStartPosition.Manual, Location = new(-30000, -30000) };
             var page = new PageScheduler(session, () => { }); form.Controls.Add(page);
             form.Show(); page.RefreshAsync().GetAwaiter().GetResult();

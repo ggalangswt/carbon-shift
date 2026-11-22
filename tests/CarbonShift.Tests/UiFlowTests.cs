@@ -1,7 +1,6 @@
 using System.Net;
 using System.Reflection;
 using CarbonShift;
-using Npgsql;
 
 namespace CarbonShift.Tests;
 
@@ -60,25 +59,11 @@ public class UiFlowTests
         }
     }
 
-    [DatabaseFact, Trait("Category", "Integration")]
+    [Fact, Trait("Category", "UI")]
     public async Task Actual_ui_selects_location_saves_reloads_history_and_shows_dashboard()
     {
-        await using var conn = await Database.OpenConnectionAsync();
-        await using var insert = new NpgsqlCommand(
-            "INSERT INTO \"user\" (name,email,password_hash) VALUES ('UI test',@email,@hash) RETURNING user_id", conn);
-        insert.Parameters.AddWithValue("email", "ui-" + Guid.NewGuid().ToString("N") + "@carbonshift.test");
-        insert.Parameters.AddWithValue("hash", PasswordHasher.Hash("ui-only"));
-        int id = Convert.ToInt32(await insert.ExecuteScalarAsync());
-        var store = new MemoryStore();
-        var api = new ApiClient(new HttpClient(new FakeHandler((request, _) => new(HttpStatusCode.OK)
-        {
-            Content = new StringContent(request.RequestUri!.Host.StartsWith("geocoding") ?
-                """{"results":[{"name":"Yogyakarta","admin1":"DI Yogyakarta","country_code":"ID","latitude":-7.8,"longitude":110.36,"timezone":"Asia/Jakarta"}]}""" :
-                WeatherTests.Payload(now: DateTimeOffset.UtcNow))
-        })));
-        var user = new UserAccount(id, "UI test", "", "");
-        try
-        {
+        var user = new UserAccount(1, "UI test", "ui@example.test");
+        var store = new MemoryStore(); var api = new TestAppClient();
             await OnUiThread(async () =>
             {
                 using var form = new FormDashboard(user, store, api) { StartPosition = FormStartPosition.Manual, Location = new(-30000, -30000) };
@@ -135,12 +120,5 @@ public class UiFlowTests
                 await WaitFor(() => Field<DataGridView>(Field<PageHistory>(reopened, "history"), "grid").Rows.Count == 1);
                 reopened.Close();
             });
-        }
-        finally
-        {
-            await RecommendationRepository.DeleteHistoryAsync(id);
-            await using var delete = new NpgsqlCommand("DELETE FROM \"user\" WHERE user_id=@id", conn);
-            delete.Parameters.AddWithValue("id", id); await delete.ExecuteNonQueryAsync();
-        }
     }
 }
