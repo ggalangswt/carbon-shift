@@ -1,0 +1,7 @@
+project_id = "carbonshift"
+
+[functions.carbonshift-auth]
+verify_jwt = false
+
+[functions.carbonshift]
+verify_jwt = false
