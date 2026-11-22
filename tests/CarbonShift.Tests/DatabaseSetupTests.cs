@@ -38,6 +38,36 @@ public class DatabaseSetupTests
     public void Reserved_or_empty_database_names_are_rejected(string name) =>
         Assert.Throws<ArgumentException>(() => (DatabaseSettings.Default with { DatabaseName = name }).ToConnectionString());
 
+    [Theory]
+    [InlineData("aws-0-ap-southeast-1.pooler.supabase.com")]
+    [InlineData("db.example.supabase.co")]
+    public void Supabase_accepts_postgres_database_and_requires_verified_tls(string host)
+    {
+        var settings = new DatabaseSettings(host, 5432, "postgres", "postgres.example", "secret",
+            "SSL Mode=Disable;Application Name=CarbonShift");
+        var parsed = new NpgsqlConnectionStringBuilder(settings.ToConnectionString());
+        Assert.Equal("postgres", parsed.Database);
+        Assert.Equal(SslMode.VerifyFull, parsed.SslMode);
+        Assert.Equal("CarbonShift", parsed.ApplicationName);
+        Assert.Equal(15, parsed.Timeout);
+        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "prod-ca-2021.crt"), parsed.RootCertificate);
+    }
+
+    [Fact]
+    public void Supabase_preserves_explicit_certificate_path()
+    {
+        var settings = new DatabaseSettings("db.example.supabase.co", 5432, "postgres", "postgres", "secret",
+            "Root Certificate=C:/certificates/custom.crt");
+        Assert.Equal("C:/certificates/custom.crt", new NpgsqlConnectionStringBuilder(settings.ToConnectionString()).RootCertificate);
+    }
+
+    [Theory]
+    [InlineData("supabase.co.attacker.test")]
+    [InlineData("example.pooler.supabase.com.attacker.test")]
+    [InlineData("localhost")]
+    public void Other_hosts_do_not_bypass_reserved_database_validation(string host) =>
+        Assert.Throws<ArgumentException>(() => new DatabaseSettings(host, 5432, "postgres", "postgres", "").ToConnectionString());
+
     [DatabaseFact, Trait("Category", "Integration")]
     public async Task Setup_new_existing_empty_and_partial_databases_without_resetting_data()
     {
