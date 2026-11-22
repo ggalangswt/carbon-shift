@@ -9,18 +9,17 @@ public sealed class FormLogin : Form
     private readonly CheckBox chkShow = new() { Text = "Tampilkan password", AutoSize = true };
     private readonly Label lblError = UiHelper.Label("");
     private readonly Label title = UiHelper.Label("Masuk", true);
-    private readonly Label hint = UiHelper.Label("Akun contoh: admin@carbonshift.com / 12345");
+    private readonly Label hint = UiHelper.Label("Masuk untuk membuka jadwal dan riwayatmu.");
     private readonly Button btnSubmit;
     private readonly LinkLabel switchMode = new() { AutoSize = true, LinkColor = UiHelper.Hijau, Margin = new Padding(4, 12, 4, 4) };
     private readonly TableLayoutPanel nameField, confirmationField;
-    private readonly LinkLabel databaseLink = new() { Text = "Pengaturan database", AutoSize = true, LinkColor = UiHelper.Hijau, Margin = new Padding(4, 8, 4, 4) };
-    private readonly DatabaseConfigurationStore configuration;
+    private readonly ICarbonShiftClient client;
     private readonly CancellationTokenSource lifetime = new();
-    private bool registering, busy, resourcesDisposed, databaseReady;
+    private bool registering, busy, resourcesDisposed;
 
-    public FormLogin(DatabaseConfigurationStore? configuration = null)
+    public FormLogin(ICarbonShiftClient? client = null)
     {
-        this.configuration = configuration ?? Database.ConfigurationStore;
+        this.client = client ?? new SupabaseAppClient();
         Text = "CarbonShift - Masuk"; Font = new Font("Segoe UI", 10);
         StartPosition = FormStartPosition.CenterScreen; AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = UiHelper.Surface; MinimumSize = new Size(740, 500); ClientSize = new Size(800, 500);
@@ -60,50 +59,14 @@ public sealed class FormLogin : Form
         btnSubmit.Dock = DockStyle.Top; Add(btnSubmit);
         switchMode.LinkClicked += (_, _) => { if (!busy) SetMode(!registering); };
         Add(switchMode);
-        databaseLink.LinkClicked += async (_, _) => { if (!busy) await EnsureDatabaseAsync(true); };
-        Add(databaseLink);
         hint.Font = new Font(Font.FontFamily, 8); hint.ForeColor = Color.DimGray; Add(hint);
         scroll.Controls.Add(fields); root.Controls.Add(scroll, 1, 0); Controls.Add(root);
         AcceptButton = btnSubmit;
         FormClosing += (_, _) => lifetime.Cancel();
+        foreach (var field in new[] { tbName, tbEmail, tbPassword, tbConfirmation })
+            field.TextChanged += (_, _) => { if (!busy) lblError.Text = ""; };
         SetMode(false);
-        SetBusy(true);
-        Shown += async (_, _) => await EnsureDatabaseAsync(false);
-    }
-
-    private async Task EnsureDatabaseAsync(bool forceWizard)
-    {
-        bool previouslyReady = databaseReady;
-        busy = true; SetBusy(true); lblError.Text = "Memeriksa database...";
-        try
-        {
-            DatabaseConfiguration? source = null;
-            try { source = configuration.Resolve(); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-            if (!forceWizard && source != null)
-            {
-                try
-                {
-                    var inspection = await new DatabaseSetupService().InspectAsync(DatabaseSettings.Parse(source.ConnectionString), lifetime.Token);
-                    if (IsDisposed) return;
-                    if (inspection.State == DatabaseReadiness.Ready)
-                    {
-                        Database.Activate(source.ConnectionString); databaseReady = true; lblError.Text = ""; return;
-                    }
-                }
-                catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
-                catch (Exception) { /* The wizard shows connection errors without exposing credentials. */ }
-            }
-            if (IsDisposed) return;
-            using var wizard = new FormDatabaseSetup(configuration, source);
-            if (wizard.ShowDialog(this) == DialogResult.OK)
-            {
-                databaseReady = true; tbPassword.Clear(); tbConfirmation.Clear(); lblError.Text = "Database siap. Silakan masuk atau daftar.";
-            }
-            else if (!previouslyReady) Close();
-            else lblError.Text = "Pengaturan sebelumnya tetap digunakan.";
-        }
-        finally { busy = false; if (!IsDisposed) SetBusy(false); }
+        SetBusy(false);
     }
 
     private void SetMode(bool register)
@@ -121,20 +84,22 @@ public sealed class FormLogin : Form
 
     private async Task SubmitAsync()
     {
-        if (busy || !databaseReady) return;
+        if (busy) return;
         busy = true; SetBusy(true); lblError.ForeColor = UiHelper.Hijau;
         lblError.Text = registering ? "Membuat akun..." : "Memeriksa akun...";
         try
         {
+            await Task.Yield();
             var user = registering
-                ? await AuthService.RegisterAsync(tbName.Text, tbEmail.Text, tbPassword.Text, tbConfirmation.Text, lifetime.Token)
-                : await AuthService.LoginAsync(tbEmail.Text, tbPassword.Text, lifetime.Token);
+                ? await client.RegisterAsync(tbName.Text, tbEmail.Text, tbPassword.Text, tbConfirmation.Text, lifetime.Token)
+                : await client.LoginAsync(tbEmail.Text, tbPassword.Text, lifetime.Token);
             if (IsDisposed) return;
             tbEmail.Text = user.Email; tbPassword.Clear(); tbConfirmation.Clear(); lblError.Text = "";
-            using var dashboard = new FormDashboard(user);
+            using var dashboard = new FormDashboard(user, apiClient: client);
             Hide();
             dashboard.ShowDialog(this);
             if (IsDisposed) return;
+            client.Logout();
             SetBusy(false);
             SetMode(false);
             Show(); tbPassword.Focus();
@@ -145,10 +110,10 @@ public sealed class FormLogin : Form
             if (IsDisposed) return;
             SetBusy(false);
             lblError.ForeColor = Color.Firebrick;
-            lblError.Text = ex is ArgumentException ? ex.Message :
-                registering ? "Akun belum dapat dibuat. Periksa koneksi database dan coba lagi. Jika email sudah terdaftar, gunakan Masuk." :
-                "Tidak dapat masuk. Periksa koneksi dan konfigurasi database.";
-            if (ex is AuthValidationException validation)
+            lblError.Text = ex is CarbonShiftApiException or ArgumentException ? ex.Message :
+                registering ? "Akun belum dapat dibuat. Coba lagi atau gunakan Masuk jika akun sudah dibuat." :
+                "Layanan belum dapat dihubungi. Periksa internet dan coba lagi.";
+            if (ex is CarbonShiftApiException { Field: not null } validation)
             {
                 Control field = validation.Field switch
                 {
@@ -167,15 +132,15 @@ public sealed class FormLogin : Form
 
     private void SetBusy(bool value)
     {
-        btnSubmit.Enabled = switchMode.Enabled = !value && databaseReady;
-        databaseLink.Enabled = !value;
+        btnSubmit.Enabled = switchMode.Enabled = !value;
         tbName.Enabled = tbEmail.Enabled = tbPassword.Enabled = tbConfirmation.Enabled = chkShow.Enabled = !value;
     }
     protected override void Dispose(bool disposing)
     {
         if (disposing && !resourcesDisposed)
         {
-            resourcesDisposed = true; lifetime.Cancel(); lifetime.Dispose();
+            resourcesDisposed = true; lifetime.Cancel(); lifetime.Dispose(); client.Logout();
+            if (client is IDisposable disposable) disposable.Dispose();
         }
         base.Dispose(disposing);
     }

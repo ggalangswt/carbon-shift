@@ -1,4 +1,7 @@
 <Solution>
+  <Project Path="../tests/CarbonShift.Database.Tests/CarbonShift.Database.Tests.csproj" />
+  <Project Path="../src/CarbonShift.Domain/CarbonShift.Domain.csproj" />
+  <Project Path="../src/CarbonShift.Contracts/CarbonShift.Contracts.csproj" />
   <Project Path="CarbonShift/CarbonShift.csproj" />
   <Project Path="../tests/CarbonShift.Tests/CarbonShift.Tests.csproj" />
 </Solution>

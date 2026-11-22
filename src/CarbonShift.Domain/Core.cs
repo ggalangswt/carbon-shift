@@ -82,7 +82,7 @@ public sealed class RecommendationResult
     public TimeSlot Best => Slots[0];
     public string Explanation { get; }
     public RecommendationResult(ScheduleRequest request, ForecastSnapshot forecast,
-        GreenScoreCalculator calculator, IEnumerable<TimeSlot> slots)
+        GreenScoreCalculator calculator, IEnumerable<TimeSlot> slots, string? explanation = null)
     {
         Request = request; Forecast = forecast; Method = calculator.Nama; Formula = calculator.Rumus;
         Slots = Array.AsReadOnly(slots.ToArray());
@@ -98,6 +98,7 @@ public sealed class RecommendationResult
             (Best.GreenScore < .4 ? "Potensi rendah; pertimbangkan tanggal atau rentang lain. " : "Skor tertinggi di antara kandidat yang tersedia. ") +
             $"\r\nSumber: {forecast.SourceLabel}; diambil {forecast.Location.LocalNow(forecast.FetchedAt):yyyy-MM-dd HH:mm:ss zzz}. " +
             (forecast.Warning is null ? "" : forecast.Warning + " ") + "\r\n" + ScoreMeaning;
+        if (explanation != null) Explanation = explanation;
     }
     public const string ScoreMeaning = "Green Score menunjukkan kesesuaian waktu dengan potensi surya, bukan persentase listrik terbarukan atau pengurangan emisi.";
 }
@@ -160,66 +161,10 @@ public sealed record ActivityRecord(int Id, string Nama, int DurationMinutes, de
     }
 }
 
-public sealed class AppSession(UserAccount user)
-{
-    public UserAccount User { get; } = user;
-    public Location? Location { get; private set; }
-    public ForecastSnapshot? Forecast { get; private set; }
-    public event EventHandler? Changed;
-    public void SetLocation(Location location)
-    {
-        if (!location.IsValid) throw new ArgumentException("Lokasi Indonesia tidak valid. Pilih ulang dari pencarian kota.");
-        Location = location; Forecast = null;
-        Changed?.Invoke(this, EventArgs.Empty);
-    }
-    public void SetForecast(ForecastSnapshot? forecast)
-    {
-        if (forecast != null && forecast.Location != Location) throw new ArgumentException("Lokasi forecast tidak sesuai.");
-        Forecast = forecast;
-        Changed?.Invoke(this, EventArgs.Empty);
-    }
-}
-
 public sealed class AuthValidationException(string message, string field) : ArgumentException(message)
 {
     public string Field { get; } = field;
 }
 
-public static class AuthService
-{
-    private static string ValidateEmail(string email)
-    {
-        email = email.Trim().ToLowerInvariant();
-        if (email.Length is < 1 or > 100 || !Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-            throw new AuthValidationException("Isi email yang valid, maksimal 100 karakter.", "email");
-        return email;
-    }
 
-    public static async Task<UserAccount> RegisterAsync(string name, string email, string password,
-        string confirmation, CancellationToken cancellationToken = default)
-    {
-        name = name.Trim();
-        if (name.Length is < 1 or > 100)
-            throw new AuthValidationException("Nama wajib diisi, maksimal 100 karakter.", "name");
-        email = ValidateEmail(email);
-        if (string.IsNullOrWhiteSpace(password) || password.Length is < 8 or > 128)
-            throw new AuthValidationException("Password harus 8–128 karakter dan tidak boleh hanya spasi.", "password");
-        if (password != confirmation)
-            throw new AuthValidationException("Konfirmasi password belum sama.", "confirmation");
-        if (await UserRepository.FindByEmailAsync(email, cancellationToken) != null)
-            throw new AuthValidationException("Email sudah terdaftar. Silakan masuk.", "email");
-        string hash = await Task.Run(() => PasswordHasher.Hash(password), cancellationToken);
-        return await UserRepository.CreateAsync(name, email, hash, cancellationToken);
-    }
-
-    public static async Task<UserAccount> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
-            throw new ArgumentException("Email dan password wajib diisi.");
-        email = ValidateEmail(email);
-        var user = await UserRepository.FindByEmailAsync(email, cancellationToken);
-        if (user == null || !await Task.Run(() => PasswordHasher.Verify(password, user.PasswordHash), cancellationToken))
-            throw new ArgumentException("Email atau password salah.");
-        return user;
-    }
-}
+public sealed record UserAccount(int UserId, string Name, string Email);

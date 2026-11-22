@@ -128,6 +128,10 @@ public sealed class PageScheduler : UserControl, IAppPage
 {
     private readonly AppSession session;
     private readonly RecommendationState state = new();
+    private Guid? previewId;
+    private DateTimeOffset previewExpires;
+    private readonly CancellationTokenSource lifetime = new();
+    private int revision;
     private readonly ComboBox activity = new() { DropDownStyle = ComboBoxStyle.DropDown, MaxLength = 100 };
     private readonly DateTimePicker date = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dddd, dd MMM yyyy" };
     private readonly NumericUpDown energy = new() { Minimum = .01m, Maximum = 9999.99m, DecimalPlaces = 2, Increment = .05m, Value = .06m };
@@ -167,7 +171,7 @@ public sealed class PageScheduler : UserControl, IAppPage
         Field("Estimasi total energi aktivitas (kWh)", energy); Field("Durasi (jam)", duration);
         Field("Boleh mulai paling awal (jam)", earliest); Field("Harus selesai paling lambat (jam)", latest);
         Field("Metode Green Score", method);
-        find = UiHelper.Button("Cari rekomendasi", (_, _) => Generate(), true); find.Dock = DockStyle.Top;
+        find = UiHelper.Button("Cari rekomendasi", async (_, _) => await GenerateAsync(), true); find.Dock = DockStyle.Top;
         save = UiHelper.Button("Simpan ke riwayat", async (_, _) => await SaveAsync(saved)); save.Dock = DockStyle.Top; save.Enabled = false;
         input.Controls.Add(find); input.Controls.Add(save); scroll.Controls.Add(input); root.Controls.Add(scroll, 0, 0);
         var right = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
@@ -185,7 +189,7 @@ public sealed class PageScheduler : UserControl, IAppPage
         {
             UiHelper.DateRange(date, session);
             if (state.Result is not { } result || busy) return;
-            try { RecommendationPolicy.EnsureSaveable(result, DateTimeOffset.UtcNow); }
+            try { if (!result.Forecast.IsDemo && DateTimeOffset.UtcNow >= previewExpires) throw new InvalidOperationException(); RecommendationPolicy.EnsureSaveable(result, DateTimeOffset.UtcNow); }
             catch (InvalidOperationException) when (!result.Forecast.IsDemo) { InvalidateResult("Waktu atau forecast sudah kedaluwarsa. Hitung ulang rekomendasi."); }
         };
         timer.Start();
@@ -194,13 +198,17 @@ public sealed class PageScheduler : UserControl, IAppPage
     private void SessionChanged(object? sender, EventArgs e) { InvalidateResult(); _ = RefreshAsync(); }
     private void InvalidateResult(string? message = null)
     {
-        state.Invalidate(); save.Enabled = false; grid.Rows.Clear(); chart.Highlight = null; chart.Invalidate();
+        revision++; previewId = null; state.Invalidate(); save.Enabled = false; grid.Rows.Clear(); chart.Highlight = null; chart.Invalidate();
         explanation.Text = message ?? "Isi aktivitas, pilih tanggal dan rentang waktu, lalu cari rekomendasi.\r\n\r\n" + RecommendationResult.ScoreMeaning;
     }
     private void RenderChart() { chart.Data = UiHelper.Day(session, date.Value); chart.Invalidate(); }
-    private void Generate()
+    private async Task GenerateAsync()
     {
+        if (busy) return;
         InvalidateResult();
+        int current = revision;
+        busy = true; input.Enabled = false;
+        explanation.Text = "Menghitung rekomendasi...";
         try
         {
             if (session.Forecast == null) throw new InvalidOperationException("Pilih lokasi dan ambil forecast terlebih dahulu.");
@@ -208,18 +216,31 @@ public sealed class PageScheduler : UserControl, IAppPage
                 throw new InvalidOperationException("Forecast kedaluwarsa. Ambil ulang terlebih dahulu.");
             var request = new ScheduleRequest(activity.Text.Trim(), (int)duration.Value, energy.Value,
                 DateOnly.FromDateTime(date.Value), (int)earliest.Value, (int)latest.Value);
-            var result = RecommendationEngine.Generate(request, session.Forecast, DateTimeOffset.UtcNow,
-                (GreenScoreCalculator)method.SelectedItem!);
+            var calculator = (GreenScoreCalculator)method.SelectedItem!;
+            RecommendationResult result;
+            string? serverExplanation = null;
+            if (session.Forecast.IsDemo)
+                result = RecommendationEngine.Generate(request, session.Forecast, DateTimeOffset.UtcNow, calculator);
+            else
+            {
+                if (session.ForecastId is not Guid forecastId) throw new InvalidOperationException("Ambil ulang forecast sebelum menghitung rekomendasi.");
+                var response = await session.Client.PreviewAsync(forecastId, request, calculator is SolarOnlyCalculator ? "solar" : "weighted", lifetime.Token);
+                if (IsDisposed || current != revision) return;
+                result = response.ToResult(); previewId = response.PreviewId; previewExpires = response.ExpiresAt; serverExplanation = response.Explanation;
+            }
             state.Set(result);
             foreach (var (slot, index) in result.Slots.Take(10).Select((s, i) => (s, i)))
             {
                 int row = grid.Rows.Add(index + 1, slot.Rentang, (slot.GreenScore * 100).ToString("0.0"), slot.Label);
                 grid.Rows[row].DefaultCellStyle.BackColor = UiHelper.ScoreColor(slot.GreenScore);
             }
-            chart.Highlight = result.Best; chart.Invalidate(); explanation.Text = result.Explanation;
+            chart.Data = result.Forecast.Hours.Where(h => DateOnly.FromDateTime(h.Start.DateTime) == result.Request.Date).ToArray();
+            chart.Highlight = result.Best; chart.Invalidate(); explanation.Text = serverExplanation ?? result.Explanation;
             save.Enabled = state.CanSave;
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { explanation.Text = ex.Message; }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex) { if (!IsDisposed && current == revision) explanation.Text = ex is ArgumentException or InvalidOperationException or CarbonShiftApiException ? ex.Message : "Rekomendasi belum dapat dimuat. Coba lagi."; }
+        finally { busy = false; if (!IsDisposed) { input.Enabled = true; save.Enabled = state.CanSave && previewId != null; } }
     }
     private async Task SaveAsync(Action saved)
     {
@@ -227,16 +248,21 @@ public sealed class PageScheduler : UserControl, IAppPage
         busy = true; input.Enabled = false;
         try
         {
-            await RecommendationRepository.SaveAsync(session.User.UserId, result);
+            if (previewId is not Guid id) return;
+            await session.Client.SaveAsync(id, lifetime.Token);
             if (IsDisposed) return;
             bool stillCurrent = ReferenceEquals(state.Result, result);
-            state.Invalidate(); save.Enabled = false;
+            revision++; previewId = null; state.Invalidate(); save.Enabled = false;
             if (stillCurrent) explanation.Text = "Jadwal berhasil disimpan ke riwayat.\r\n\r\n" + result.Explanation;
             saved();
         }
         catch (Exception ex)
         {
-            if (!IsDisposed) explanation.Text = "Gagal menyimpan jadwal. Periksa koneksi lalu coba lagi.\r\n" + ex.Message;
+            if (!IsDisposed)
+            {
+                if (ex is CarbonShiftApiException { Status: System.Net.HttpStatusCode.Conflict }) InvalidateResult(ex.Message);
+                else explanation.Text = "Jadwal belum dapat disimpan. Coba lagi.\r\n" + ex.Message;
+            }
         }
         finally
         {
@@ -247,7 +273,7 @@ public sealed class PageScheduler : UserControl, IAppPage
     public Task RefreshAsync() { UiHelper.DateRange(date, session); RenderChart(); return Task.CompletedTask; }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { session.Changed -= SessionChanged; timer.Dispose(); }
+        if (disposing) { lifetime.Cancel(); lifetime.Dispose(); session.Changed -= SessionChanged; timer.Dispose(); }
         base.Dispose(disposing);
     }
 }
@@ -297,7 +323,7 @@ public sealed class PageHistory : UserControl, IAppPage
             if (busy || rows.Count == 0 || MessageBox.Show("Hapus semua jadwal tersimpan milik akun ini?", "Hapus riwayat",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             SetBusy(true);
-            try { await RecommendationRepository.DeleteHistoryAsync(session.User.UserId); changed(); }
+            try { await session.Client.DeleteHistoryAsync(); changed(); }
             catch (Exception ex) { detail.Text = "Gagal menghapus riwayat: " + ex.Message; }
             finally { if (!IsDisposed) SetBusy(false); }
             if (!IsDisposed) await RefreshAsync();
@@ -325,7 +351,7 @@ public sealed class PageHistory : UserControl, IAppPage
         rows = []; grid.Rows.Clear(); detail.Clear();
         try
         {
-            var loaded = await RecommendationRepository.GetHistoryAsync(session.User.UserId);
+            var loaded = await session.Client.HistoryAsync();
             if (IsDisposed) return;
             rows = loaded;
             foreach (var row in rows)
@@ -388,16 +414,15 @@ public sealed class PageOverview : UserControl, IAppPage
         busy = true; stats.Text = "Memuat statistik..."; next.Text = "";
         try
         {
-            var history = await RecommendationRepository.GetHistoryAsync(session.User.UserId);
+            var response = await session.Client.DashboardAsync(session.Location?.TimeZoneId ?? "Asia/Jakarta");
             if (IsDisposed) return;
-            var result = DashboardStatistics.Calculate(history, UiHelper.LocalToday(session), DateTimeOffset.UtcNow);
+            var result = new DashboardStatistics(response.WeeklyCount, response.AverageScore / 100, response.Next?.ToRecord());
             stats.Text = $"Minggu berjalan (Senin–Minggu): {result.WeeklyCount} jadwal tersimpan\r\nRata-rata Green Score: " +
                 (result.AverageScore is { } avg ? $"{avg * 100:0.0}/100" : "Belum ada data");
             next.Text = result.Next is { } n ? $"Jadwal berikutnya: {n.Nama}\r\n{n.Rentang} | {n.Lokasi}" :
                 "Belum ada jadwal mendatang dengan zona waktu yang diketahui.";
-            if (history.Any(h => h.StartInstant == null)) next.Text += "\r\nZona waktu data lama tidak tersedia; jadwal tersebut tidak dipakai untuk menentukan jadwal berikutnya.";
         }
-        catch (Exception) { if (!IsDisposed) stats.Text = "Statistik gagal dimuat. Periksa koneksi database lalu muat ulang."; }
+        catch (Exception) { if (!IsDisposed) stats.Text = "Statistik belum dapat dimuat. Coba lagi."; }
         finally { busy = false; }
     }
 }

@@ -1,4 +1,4 @@
-﻿################################################################################
+################################################################################
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
@@ -8,6 +8,10 @@
 /Form/CarbonShift/CarbonShift.csproj.user
 /Form/CarbonShift/database.config
 /Form/CarbonShift/supabase.config
+/Form/CarbonShift/supabase.public.json
+/.env
+/.env.*
+!/.env.example
 /.vs
 **/bin/
 **/obj/
@@ -15,3 +19,5 @@
 /artifacts/
 /output/
 /tmp/
+/supabase/.temp/
+/supabase/.branches/

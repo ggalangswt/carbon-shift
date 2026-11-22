@@ -4,8 +4,7 @@ public sealed class FormDashboard : Form
 {
     private readonly AppSession session;
     private readonly ILocalStore store = new LocalStore();
-    private readonly WeatherService weather;
-    private readonly LocationSearchService search;
+    private readonly ICarbonShiftClient api;
     private readonly CancellationTokenSource lifetime = new();
     private readonly Panel content = new() { Dock = DockStyle.Fill };
     private readonly TableLayoutPanel header = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 5, Padding = new Padding(16, 12, 16, 0), Margin = Padding.Empty };
@@ -21,11 +20,12 @@ public sealed class FormDashboard : Form
     private bool resourcesDisposed;
     private Control? active;
 
-    public FormDashboard(UserAccount user, ILocalStore? localStore = null, ApiClient? apiClient = null)
+    public FormDashboard(UserAccount user, ILocalStore? localStore = null, ICarbonShiftClient? apiClient = null)
     {
         store = localStore ?? new LocalStore();
-        session = new(user);
-        var api = apiClient ?? new ApiClient(); weather = new(api, store); search = new(api);
+        api = apiClient ?? new SupabaseAppClient();
+        session = new(user, api);
+        api.SessionExpired += SessionExpired;
         Text = "CarbonShift"; ClientSize = new Size(1200, 820); MinimumSize = new Size(980, 680);
         StartPosition = FormStartPosition.CenterScreen; Font = new Font("Segoe UI", 10);
         BackColor = UiHelper.Surface; AutoScaleMode = AutoScaleMode.Dpi;
@@ -87,7 +87,7 @@ public sealed class FormDashboard : Form
         {
             if (working) return;
             if (session.Location == null) session.SetLocation(new("Yogyakarta", "DI Yogyakarta", -7.7956, 110.3695, "Asia/Jakarta"));
-            session.SetForecast(WeatherService.Demo(session.Location!, DateTimeOffset.UtcNow));
+            session.SetForecast(DemoForecast.Create(session.Location!, DateTimeOffset.UtcNow));
             feedback.Text = "Mode demo aktif. Hasil tidak dapat disimpan. Ambil ulang forecast untuk kembali ke data nyata.";
         }));
         header.Controls.Add(actions);
@@ -117,7 +117,7 @@ public sealed class FormDashboard : Form
             await NavigateAsync(overview);
             try
             {
-                var location = await store.ReadAsync<Location>("location_user_" + user.UserId, lifetime.Token);
+                var location = await store.ReadAsync<Location>("location_" + ServiceKey() + "_user_" + user.UserId, lifetime.Token);
                 if (IsDisposed) return;
                 if (location is { IsValid: true })
                 {
@@ -133,6 +133,11 @@ public sealed class FormDashboard : Form
         status.Text = "Cari kota dan pilih lokasi untuk memulai.";
     }
 
+    private static string ServiceKey() => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(SupabaseAppClient.DefaultAddress.ToString())))[..12];
+    private void SessionExpired(object? sender, EventArgs e)
+    {
+        if (!IsDisposed && IsHandleCreated) BeginInvoke(() => { if (!IsDisposed) Close(); });
+    }
     private async Task NavigateAsync(Control page)
     {
         if (IsDisposed) return;
@@ -159,7 +164,7 @@ public sealed class FormDashboard : Form
         Busy(true, "Mencari kota...");
         try
         {
-            var locations = await search.SearchAsync(query.Text, lifetime.Token);
+            var locations = await api.SearchAsync(query.Text, lifetime.Token);
             if (IsDisposed) return;
             string typed = query.Text;
             query.Items.Clear(); foreach (var location in locations) query.Items.Add(location);
@@ -179,7 +184,7 @@ public sealed class FormDashboard : Form
         Busy(true, "Mengatur lokasi...");
         session.SetLocation(location);
         string? warning = null;
-        try { await store.WriteAsync("location_user_" + session.User.UserId, location, lifetime.Token); }
+        try { await store.WriteAsync("location_" + ServiceKey() + "_user_" + session.User.UserId, location, lifetime.Token); }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
         catch (Exception) { warning = "Lokasi aktif, tetapi pengaturan perangkat tidak dapat disimpan."; }
         finally { if (!IsDisposed) { working = false; header.Enabled = true; } }
@@ -195,9 +200,10 @@ public sealed class FormDashboard : Form
         session.SetForecast(null);
         try
         {
-            var snapshot = await weather.GetForecastAsync(location, force, lifetime.Token);
+            var response = await api.ForecastAsync(location, force, lifetime.Token);
+            var snapshot = response.Forecast;
             if (IsDisposed) return;
-            session.SetForecast(snapshot);
+            session.SetForecast(snapshot); session.ForecastId = response.ForecastId;
             feedback.Text = snapshot.Warning ?? "Forecast siap. Buka Scheduler untuk membuat jadwal.";
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
@@ -209,7 +215,7 @@ public sealed class FormDashboard : Form
         if (disposing && !resourcesDisposed)
         {
             resourcesDisposed = true;
-            lifetime.Cancel(); session.Changed -= SessionChanged;
+            lifetime.Cancel(); api.SessionExpired -= SessionExpired; api.Logout(); session.Changed -= SessionChanged;
             overview.Dispose(); forecast.Dispose(); scheduler.Dispose(); history.Dispose(); lifetime.Dispose();
         }
         base.Dispose(disposing);
